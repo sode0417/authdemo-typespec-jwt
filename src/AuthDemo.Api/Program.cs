@@ -6,6 +6,21 @@ using AuthDemo.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
+// リクエスト・レスポンスの型定義
+record SignUpRequest(string username, string password);
+record SignUpResponse
+{
+    public string id { get; init; } = default!;
+    public string username { get; init; } = default!;
+}
+
+record SignInRequest(string username, string password);
+record SignInResponse
+{
+    public string token { get; init; } = default!;
+    public string username { get; init; } = default!;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 // DbContext を登録
@@ -81,20 +96,5 @@ app.MapPost("/auth/signin", async (SignInRequest request, IUserService userServi
 })
 .WithName("SignIn")
 .WithOpenApi();
-
-// リクエスト・レスポンスの型定義
-record SignUpRequest(string username, string password);
-record SignUpResponse
-{
-    public string id { get; init; } = default!;
-    public string username { get; init; } = default!;
-}
-
-record SignInRequest(string username, string password);
-record SignInResponse
-{
-    public string token { get; init; } = default!;
-    public string username { get; init; } = default!;
-}
 
 app.Run();

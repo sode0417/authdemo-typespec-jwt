@@ -49,6 +49,10 @@ jobs:
       uses: actions/setup-dotnet@v3
       with: { dotnet-version: '8.0.x' }
 
+    # Install EF Core tools
+    - name: Install Entity Framework Core tools
+      run: dotnet tool install --global dotnet-ef
+
     # ソリューション全体をリストア & ビルド
     - name: Restore NuGet packages
       run: dotnet restore

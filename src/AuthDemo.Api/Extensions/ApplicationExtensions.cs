@@ -1,6 +1,7 @@
 using AuthDemo.Api.Models;
 using AuthDemo.Api.Services;
 using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
 
 namespace AuthDemo.Api.Extensions;
 
@@ -25,11 +26,13 @@ public static class ApplicationExtensions
 
     private static void MapEndpoints(WebApplication app)
     {
-        app.MapGet("/", () => "Hello AuthDemo!");
+        app.MapGet("/", () => "Hello AuthDemo!")
+            .WithMetadata(new SwaggerOperationAttribute("Get Home", "Returns a welcome message"));
 
         app.MapGet("/profile", () => 
             Results.Ok(new { message = "This is a protected endpoint" }))
-            .RequireAuthorization();
+            .RequireAuthorization()
+            .WithMetadata(new SwaggerOperationAttribute("Get Profile", "Returns protected profile information"));
 
         app.MapPost("/auth/signup", async (SignUpRequest request, IUserService userService) =>
         {
@@ -44,7 +47,7 @@ public static class ApplicationExtensions
             }
         })
         .WithName("SignUp")
-        .WithOpenApi();
+        .WithMetadata(new SwaggerOperationAttribute("Sign Up", "Register a new user"));
 
         app.MapPost("/auth/signin", async (SignInRequest request, IUserService userService) =>
         {
@@ -59,6 +62,6 @@ public static class ApplicationExtensions
             }
         })
         .WithName("SignIn")
-        .WithOpenApi();
+        .WithMetadata(new SwaggerOperationAttribute("Sign In", "Authenticate and get JWT token"));
     }
 }

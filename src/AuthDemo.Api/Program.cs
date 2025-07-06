@@ -1,86 +1,8 @@
-using System.Text.Json;
 using AuthDemo.Api.Extensions;
-using AuthDemo.Api.Models;
-using AuthDemo.Api.Security;
-using AuthDemo.Api.Services;
-using AuthDemo.Infrastructure.Persistence;
-using Microsoft.AspNetCore.Mvc;
-using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// DbContext を登録
-builder.Services.AddDbContextPool<ApplicationDbContext>(opts =>
-    opts.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
-
-// JWT認証と認可を追加
-builder.Services.AddJwtAuthentication(builder.Configuration);
-builder.Services.AddAuthorization();
-
-// API関連の設定を追加
-builder.Services.AddControllers()
-    .AddJsonOptions(options =>
-    {
-        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
-    });
-
-// 認証関連のサービスを登録
-builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
-builder.Services.AddScoped<IUserService, UserService>();
-
-// Swagger/OpenAPI の設定
-builder.Services.AddEndpointsApiExplorer();
-builder.Services.AddSwaggerGen();
+builder.Services.AddApplicationServices(builder.Configuration);
 
 var app = builder.Build();
-
-// 開発環境の場合のみSwaggerを有効化
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
-
-// ルーティングとセキュリティの設定
-app.UseRouting();
-app.UseAuthentication();
-app.UseAuthorization();
-
-app.MapGet("/", () => "Hello AuthDemo!");
-
-// サンプルの保護エンドポイント
-app.MapGet("/profile", () => Results.Ok(new { message = "This is a protected endpoint" }))
-    .RequireAuthorization();
-
-// 認証エンドポイント
-app.MapPost("/auth/signup", async (SignUpRequest request, IUserService userService) =>
-{
-    try
-    {
-        var result = await userService.SignUpAsync(request.username, request.password);
-        return Results.Ok(new SignUpResponse { id = result.Id, username = result.Username });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-})
-.WithName("SignUp")
-.WithOpenApi();
-
-app.MapPost("/auth/signin", async (SignInRequest request, IUserService userService) =>
-{
-    try
-    {
-        var result = await userService.SignInAsync(request.username, request.password);
-        return Results.Ok(new SignInResponse { token = result.Token, username = result.Username });
-    }
-    catch (InvalidOperationException ex)
-    {
-        return Results.BadRequest(new { error = ex.Message });
-    }
-})
-.WithName("SignIn")
-.WithOpenApi();
-
+app.ConfigureEndpoints();
 app.Run();

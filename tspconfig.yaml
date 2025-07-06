@@ -1,0 +1,12 @@
+emit:
+  - "@typespec/openapi3"
+  - "@typespec/http-server-csharp"
+
+output-dir: "{project-root}/Generated"
+
+options:
+  "@typespec/openapi3":
+    file-type: yaml
+  "@typespec/http-server-csharp":
+    project-name: AuthDemo
+    # emitter-output-dir: "{output-dir}/server"  # 追加したい場合は有効なキーで

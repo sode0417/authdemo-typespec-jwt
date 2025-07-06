@@ -1,0 +1,19 @@
+{
+  "name": "authdemo-typespec-jwt",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "tsp:compile": "tsp compile Spec/auth.tsp"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "devDependencies": {
+    "@typespec/compiler": "^1.1.0",
+    "@typespec/http": "^1.1.0",
+    "@typespec/http-server-csharp": "^0.58.0-alpha.17",
+    "@typespec/openapi3": "^1.1.0"
+  }
+}

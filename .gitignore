@@ -56,3 +56,4 @@ src/**/Properties/launchSettings.json
 src/**/appsettings.Development.json
 Generated/
 src/**/Class1.cs
+.env

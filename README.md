@@ -14,7 +14,7 @@
 * **EF Core 8** & **PostgreSQL 16** で永続化  
 * **JWT (Bearer)** 認証を実装予定
 
-“契約ファースト” で **実装・テスト・ドキュメント** を 1 枚の契約に揃える  
+"契約ファースト" で **実装・テスト・ドキュメント** を 1 枚の契約に揃える  
 **Contract-Driven Development** をハンズオンで体験できます。
 
 ---
@@ -53,10 +53,14 @@ dotnet ef database update \
   -p src/AuthDemo.Infrastructure \
   -s src/AuthDemo.Api
 
-# 6. Run API
+# 6. Set development secrets
+dotnet user-secrets init --project src/AuthDemo.Api
+dotnet user-secrets set "Jwt:Key" "DevOnly__ChangeMe" --project src/AuthDemo.Api
+
+# 7. Run API
 dotnet run --project src/AuthDemo.Api
 # → http://localhost:5173  (Swagger = /swagger)
-````
+```
 
 > **必要ツール**
 >
@@ -64,6 +68,19 @@ dotnet run --project src/AuthDemo.Api
 > * **.NET SDK 8.x**
 > * **Docker Desktop + WSL2** (Windows) ／ **Docker Engine** (macOS/Linux)
 >   *（任意）VS Code 拡張 *TypeSpec for VS Code* – 構文ハイライト & 補完*
+
+---
+
+## 🔑 JWT認証設定
+
+| 用途 | 例 | 補足 |
+|------|-----|------|
+| **ローカル開発** | `dotnet user-secrets` で管理 | 開発用の署名キーを安全に保存 |
+| **CI / GitHub Actions** | `JWT__Key` シークレット | Settings > Secrets で設定 |
+| **本番環境** | 環境変数で設定 | `JWT__Key`, `JWT__Issuer`, `JWT__Audience` |
+
+* 開発時は `user-secrets` でシークレットを管理
+* CI/本番環境では環境変数で設定を上書き
 
 ---
 
@@ -137,6 +154,7 @@ steps:
 | `…doesn't reference Microsoft.EntityFrameworkCore.Design` | *Design* パッケージは **どこか 1 プロジェクト**にあれば OK。<br>`src/AuthDemo.Infrastructure` だけに入れて `PrivateAssets="all"` にする。 |
 | `Connection refused (127.0.0.1:5432)`                     | Docker 版 Postgres へ接続するときは **`host.docker.internal`** を使う（Windows/mac）。                                     |
 | マイグレーション No actions                                       | 既に DB が最新。`dotnet ef migrations add <name>` で追加 → `database update`                                         |
+| JWT認証で401エラー                                            | `user-secrets` でJWTキーが設定されているか確認。<br>本番環境では `JWT__Key` などの環境変数を確認。                                     |
 
 ---
 

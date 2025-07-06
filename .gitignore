@@ -1,1 +1,57 @@
-Generated/**
+#################################
+# .NET / VS / VS Code
+#################################
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+
+#################################
+# EF Core design-time build data
+#################################
+**/Migrations/*.Designer.cs
+**/Migrations/*Snapshot.cs     # ← スナップショットはコミットする派なら外す
+
+#################################
+# Node (if any)
+#################################
+node_modules/
+npm-debug.log*
+
+#################################
+# Docker / WSL
+#################################
+# Windows の Docker Desktop が作る VHDX や log
+*.vhdx
+AppData/Local/Docker/
+DockerDesktop.vhdx
+
+#################################
+# Logs, temp
+#################################
+*.log
+*~                                    # 末尾チルダのバックアップ
+
+# --- build artifacts -----------------
+bin/
+obj/
+*.pdb
+*.dll
+*.runtimeconfig.json
+
+# NuGet design-time
+**/obj/**/*.nuget.*
+**/obj/**/project.assets.json
+**/obj/**/project.nuget.cache
+
+# VS / VSCode
+.vs/
+.vscode/
+*.user
+*.suo
+
+# Dev-only config
+src/**/Properties/launchSettings.json
+src/**/appsettings.Development.json

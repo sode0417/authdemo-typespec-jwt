@@ -29,6 +29,10 @@ jobs:
     env:
       # EF Core から参照される DSN
       Pg__ConnectionString: Host=localhost;Port=5432;Database=authdemo;Username=postgres;Password=postgres
+      # JWT設定
+      Jwt__Issuer: AuthDemo
+      Jwt__Audience: AuthDemo
+      Jwt__Key: ${{ secrets.JWT_KEY }}
 
     steps:
     ### ❷ リポジトリ取得

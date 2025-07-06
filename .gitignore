@@ -54,3 +54,4 @@ DockerDesktop.vhdx
 #################################
 src/**/Properties/launchSettings.json
 src/**/appsettings.Development.json
+Generated/

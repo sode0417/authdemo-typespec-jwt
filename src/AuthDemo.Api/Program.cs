@@ -1,7 +1,9 @@
+using System.Text.Json;
 using AuthDemo.Api.Extensions;
 using AuthDemo.Api.Security;
 using AuthDemo.Api.Services;
 using AuthDemo.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -14,13 +16,32 @@ builder.Services.AddDbContextPool<ApplicationDbContext>(opts =>
 builder.Services.AddJwtAuthentication(builder.Configuration);
 builder.Services.AddAuthorization();
 
+// API関連の設定を追加
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.PropertyNameCaseInsensitive = true;
+    });
+
 // 認証関連のサービスを登録
 builder.Services.AddScoped<IPasswordHasher, PasswordHasher>();
 builder.Services.AddScoped<IUserService, UserService>();
 
+// Swagger/OpenAPI の設定
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen();
+
 var app = builder.Build();
 
-// 認証・認可ミドルウェアを有効化
+// 開発環境の場合のみSwaggerを有効化
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
+
+// ルーティングとセキュリティの設定
+app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -42,7 +63,9 @@ app.MapPost("/auth/signup", async (SignUpRequest request, IUserService userServi
     {
         return Results.BadRequest(new { error = ex.Message });
     }
-});
+})
+.WithName("SignUp")
+.WithOpenApi();
 
 app.MapPost("/auth/signin", async (SignInRequest request, IUserService userService) =>
 {
@@ -55,7 +78,9 @@ app.MapPost("/auth/signin", async (SignInRequest request, IUserService userServi
     {
         return Results.BadRequest(new { error = ex.Message });
     }
-});
+})
+.WithName("SignIn")
+.WithOpenApi();
 
 // リクエスト・レスポンスの型定義
 record SignUpRequest(string username, string password);

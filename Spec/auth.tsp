@@ -1,18 +1,22 @@
-// Spec/auth.tsp
 import "@typespec/http";
-using Http;
+import "@typespec/rest";
 
-@service
-namespace AuthService;
+using TypeSpec.Http;
+using TypeSpec.Rest;
 
-model VersionResponse {
-  version: string;
+namespace AuthDemo;
+
+@route("/auth")
+interface AuthOperations {
+  @route("signup")
+  @post
+  signUp(@body signUpRequest: SignUpRequest): SignUpResponse | ErrorResponse;
+
+  @route("signin")
+  @post
+  signIn(@body signInRequest: SignInRequest): SignInResponse | ErrorResponse;
 }
 
-@route("/version")
-op getVersion(): VersionResponse;
-
-// Auth models
 model SignUpRequest {
   username: string;
   password: string;
@@ -33,13 +37,6 @@ model SignInResponse {
   username: string;
 }
 
-@route("/auth")
-namespace Auth {
-  @route("/signup")
-  @post
-  op signUp(@body body: SignUpRequest): SignUpResponse;
-
-  @route("/signin")
-  @post
-  op signIn(@body body: SignInRequest): SignInResponse;
+model ErrorResponse {
+  error: string;
 }

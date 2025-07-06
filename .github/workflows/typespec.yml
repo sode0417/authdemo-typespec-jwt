@@ -1,20 +1,62 @@
-# .github/workflows/typespec.yml
-name: TypeSpec Compile
+name: CI
 
 on:
   push:
-    branches: [ main ]          # main 直 push
-  pull_request:                 # すべての PR（main 宛デフォルト）
-    types: [opened, synchronize, reopened]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build:
+  build-test:
     runs-on: ubuntu-latest
+
+    ### ❶ Postgres ― GitHub Hosted Runner 上に DB を建てる
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: authdemo
+        # ↓ ランナー ↔ DB の疎通
+        ports: ['5432:5432']
+        # ヘルスチェック (30s × 20 = 最大10分待機)
+        options: >-
+          --health-cmd="pg_isready -U postgres"
+          --health-interval=30s
+          --health-timeout=5s
+          --health-retries=20
+
+    env:
+      # EF Core から参照される DSN
+      Pg__ConnectionString: Host=localhost;Port=5432;Database=authdemo;Username=postgres;Password=postgres
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run tsp:compile
+    ### ❷ リポジトリ取得
+    - uses: actions/checkout@v4
+
+    ### ❸ Node / TypeSpec
+    - name: Setup Node.js 20
+      uses: actions/setup-node@v4
+      with: { node-version: '20' }
+
+    - name: Install npm deps & compile TypeSpec
+      run: |
+        npm ci
+        npm run tsp:compile     # => Generated/
+
+    ### ❹ .NET
+    - name: Setup .NET 8
+      uses: actions/setup-dotnet@v3
+      with: { dotnet-version: '8.0.x' }
+
+    # ソリューション全体をリストア & ビルド
+    - name: dotnet build
+      run: dotnet build --configuration Release --no-restore
+
+    # ❺ マイグレーション適用 (Infrastructure → Api)
+    - name: Apply EF Core migrations
+      run: dotnet ef database update --no-build \
+              -p src/AuthDemo.Infrastructure \
+              -s src/AuthDemo.Api
+
+    ### ❻ 単体テストがあればここで dotnet test …

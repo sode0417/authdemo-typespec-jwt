@@ -1,25 +1,11 @@
 using System.Text.Json;
 using AuthDemo.Api.Extensions;
+using AuthDemo.Api.Models;
 using AuthDemo.Api.Security;
 using AuthDemo.Api.Services;
 using AuthDemo.Infrastructure.Persistence;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-
-// リクエスト・レスポンスの型定義
-record SignUpRequest(string username, string password);
-record SignUpResponse
-{
-    public string id { get; init; } = default!;
-    public string username { get; init; } = default!;
-}
-
-record SignInRequest(string username, string password);
-record SignInResponse
-{
-    public string token { get; init; } = default!;
-    public string username { get; init; } = default!;
-}
 
 var builder = WebApplication.CreateBuilder(args);
 

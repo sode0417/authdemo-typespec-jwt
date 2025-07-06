@@ -1,5 +1,5 @@
 #################################
-# .NET / VS / VS Code
+# .NET / Visual Studio / VS Code
 #################################
 bin/
 obj/
@@ -9,10 +9,26 @@ obj/
 .vscode/
 
 #################################
-# EF Core design-time build data
+# Build 出力
+#################################
+*.pdb
+*.dll
+*.runtimeconfig.json
+
+#################################
+# NuGet design-time / restore キャッシュ
+#################################
+**/obj/**/*.nuget.*
+**/obj/**/project.assets.json
+**/obj/**/project.nuget.cache
+
+#################################
+# EF Core design-time
+#   ─ Designer.cs は自動生成なので除外
+#   ─ *Snapshot.cs は「コミットする派 / しない派」どちらか決めて
 #################################
 **/Migrations/*.Designer.cs
-**/Migrations/*Snapshot.cs     # ← スナップショットはコミットする派なら外す
+# **/Migrations/*Snapshot.cs   ← ★スナップショットをコミットしないなら有効化
 
 #################################
 # Node (if any)
@@ -21,37 +37,20 @@ node_modules/
 npm-debug.log*
 
 #################################
-# Docker / WSL
+# Docker / WSL / 大容量ファイル
 #################################
-# Windows の Docker Desktop が作る VHDX や log
 *.vhdx
 AppData/Local/Docker/
 DockerDesktop.vhdx
 
 #################################
-# Logs, temp
+# Logs / 一時ファイル / バックアップ
 #################################
 *.log
-*~                                    # 末尾チルダのバックアップ
+*~                                   # 末尾チルダのバックアップ
 
-# --- build artifacts -----------------
-bin/
-obj/
-*.pdb
-*.dll
-*.runtimeconfig.json
-
-# NuGet design-time
-**/obj/**/*.nuget.*
-**/obj/**/project.assets.json
-**/obj/**/project.nuget.cache
-
-# VS / VSCode
-.vs/
-.vscode/
-*.user
-*.suo
-
-# Dev-only config
+#################################
+# Dev-only launchSettings / local config
+#################################
 src/**/Properties/launchSettings.json
 src/**/appsettings.Development.json

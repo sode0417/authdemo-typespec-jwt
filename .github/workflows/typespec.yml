@@ -62,8 +62,10 @@ jobs:
 
     # ❺ マイグレーション適用 (Infrastructure → Api)
     - name: Apply EF Core migrations
-      run: dotnet ef database update --no-build \
-              -p src/AuthDemo.Infrastructure \
-              -s src/AuthDemo.Api
+      run: |
+        cd src/AuthDemo.Api
+        dotnet ef database update \
+          --project ../AuthDemo.Infrastructure \
+          --startup-project .
 
     ### ❻ 単体テストがあればここで dotnet test …

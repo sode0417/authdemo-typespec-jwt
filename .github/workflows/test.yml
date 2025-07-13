@@ -18,6 +18,14 @@ jobs:
       with:
         dotnet-version: '8.0.x'
 
+    - name: Cache NuGet packages
+      uses: actions/cache@v3
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
     - name: Restore dependencies
       run: dotnet restore
 
@@ -25,4 +33,4 @@ jobs:
       run: dotnet build --configuration Release
 
     - name: Run Tests
-      run: dotnet test --verbosity normal
+      run: dotnet test --verbosity detailed

@@ -57,8 +57,9 @@ public static class JwtTokenHelper
     public static string CreateToken(
         string? issuer = "AuthDemo",
         string? audience = "AuthDemo",
+        DateTime? notBefore = null,
         DateTime? expires = null,
-        string? key = "TestSecretKey_for_unit_tests_1234567890")
+        string? key = "TestSecretKey_for_unit_tests_12345678901234567890123456789012") // 32文字以上
     {
         var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!));
         var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
@@ -67,6 +68,7 @@ public static class JwtTokenHelper
         {
             Issuer = issuer,
             Audience = audience,
+            NotBefore = notBefore ?? DateTime.UtcNow,
             Expires = expires ?? DateTime.UtcNow.AddMinutes(30),
             SigningCredentials = credentials
         });

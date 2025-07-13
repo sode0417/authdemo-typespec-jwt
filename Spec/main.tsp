@@ -10,9 +10,7 @@ using TypeSpec.Rest;
 @server("https://localhost:5173", "Local development server")
 namespace AuthDemo;
 
-@security BearerAuth {
-  type: "http";
-  scheme: "bearer";
+model BearerAuth extends TypeSpec.Http.BearerAuth {
   bearerFormat: "JWT";
 }
 

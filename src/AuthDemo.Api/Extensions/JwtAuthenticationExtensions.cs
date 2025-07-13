@@ -43,11 +43,30 @@ public static class JwtAuthenticationExtensions
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
+                    RequireExpirationTime = true,
                     ValidateIssuerSigningKey = true,
+                    RequireSignedTokens = true,
+                    ClockSkew = TimeSpan.Zero,
                     ValidIssuer = jwtOptions.Issuer,
                     ValidAudience = jwtOptions.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(jwtOptions.Key))
+                };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnAuthenticationFailed = ctx =>
+                    {
+                        ctx.NoResult();
+                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    },
+                    OnChallenge = ctx =>
+                    {
+                        ctx.HandleResponse();
+                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    }
                 };
             });
 

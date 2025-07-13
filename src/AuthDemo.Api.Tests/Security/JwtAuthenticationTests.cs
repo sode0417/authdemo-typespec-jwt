@@ -1,7 +1,10 @@
+using System;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net.Http;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
@@ -9,6 +12,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 using AuthDemo.Api;
 using AuthDemo.Infrastructure.Persistence;
+using Xunit;
 
 namespace AuthDemo.Api.Tests.Security;
 

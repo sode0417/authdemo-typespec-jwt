@@ -1,4 +1,6 @@
+#nullable enable
 using System;
+using System.Threading.Tasks;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http;
 using System.Net;
@@ -13,6 +15,9 @@ using Microsoft.IdentityModel.Tokens;
 using AuthDemo.Api;
 using AuthDemo.Infrastructure.Persistence;
 using Xunit;
+
+using System.Collections.Generic;
+using System.Linq;
 
 namespace AuthDemo.Api.Tests.Security;
 

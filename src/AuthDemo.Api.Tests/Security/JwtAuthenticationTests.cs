@@ -95,7 +95,7 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task ProtectedEndpoint_WithInvalidSignature_Returns401()
     {
-        var token = JwtTokenHelper.CreateToken(key: "other-secret-key");
+        var token = JwtTokenHelper.CreateToken(key: "other-secret-key-12345678901234567890");
         var request = new HttpRequestMessage(HttpMethod.Get, "/profile");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var res = await _client.SendAsync(request);
@@ -105,7 +105,7 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     [Fact]
     public async Task ProtectedEndpoint_WithExpiredToken_Returns401()
     {
-        var token = JwtTokenHelper.CreateToken(expires: DateTime.UtcNow.AddMinutes(-5));
+        var token = JwtTokenHelper.CreateToken(notBefore: DateTime.UtcNow.AddMinutes(-10), expires: DateTime.UtcNow.AddMinutes(-5));
         var request = new HttpRequestMessage(HttpMethod.Get, "/profile");
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         var res = await _client.SendAsync(request);

@@ -1,11 +1,9 @@
 name: Run Tests
 
 on:
-  push:
+  pull_request:
     branches:
       - main
-      - feature/*
-  pull_request:
 
 jobs:
   build:
@@ -24,7 +22,7 @@ jobs:
       run: dotnet restore
 
     - name: Build
-      run: dotnet build --no-restore --configuration Release
+      run: dotnet build --configuration Release
 
     - name: Run Tests
-      run: dotnet test --no-build --verbosity normal
+      run: dotnet test --verbosity normal

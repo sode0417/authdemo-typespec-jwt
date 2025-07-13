@@ -24,6 +24,16 @@ public static class JwtAuthenticationExtensions
             throw new InvalidOperationException("JwtOptions configuration is missing");
         }
 
+        var envKey = Environment.GetEnvironmentVariable("JWT_KEY");
+        if (!string.IsNullOrWhiteSpace(envKey))
+        {
+            jwtOptions.Key = envKey;
+        }
+        if (string.IsNullOrWhiteSpace(jwtOptions.Key))
+        {
+            throw new InvalidOperationException("JWT key is not configured");
+        }
+
         // JWT Bearer認証を追加
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>

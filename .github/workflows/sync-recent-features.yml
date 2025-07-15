@@ -17,7 +17,7 @@ jobs:
       - name: Create PRs for recently updated features
         uses: actions/github-script@v6
         with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
+          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           script: |
             console.log('Debugging github object:', github);
             const OWNER = context.repo.owner;

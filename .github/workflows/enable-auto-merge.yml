@@ -1,0 +1,32 @@
+name: Enable auto-merge
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, ready_for_review]
+
+jobs:
+  enable_auto_merge:
+    # PR が draft でない場合のみ実行
+    if: ${{ github.event.pull_request.draft == false }}
+    env:
+      PR_NUMBER: ${{ github.event.number }}
+    permissions:
+      pull-requests: write
+      contents: write
+      actions: write
+    runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && 'arc-runner-set' || 'ubuntu-latest' }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup gh
+        uses: wusatosi/setup-gh@v1
+      - name: enable auto-merge
+        run: |
+          echo base branch: ${{ github.event.pull_request.base.ref }}
+          echo head branch: ${{ github.event.pull_request.head.ref }}
+          echo PR number: ${{ github.event.number }}
+          echo isDraft: ${{ github.event.pull_request.draft }}
+          gh pr merge "$PR_NUMBER" --merge --auto
+        # 上流から下流ブランチへのPRの場合、レビュアー承認を不要とする (mainからdevelopの場合、developからfeature/*の場合)
+      - name: For pull requests from upstream to downstream branches (e.g., from main to develop or from develop to feature/), reviewer approval is not required.
+        if: ${{ github.event.pull_request.draft == false && (github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop' || github.event.pull_request.head.ref == 'develop' && startsWith(github.event.pull_request.base.ref, 'feature/')) }}
+        uses: hmarr/auto-approve-action@v4

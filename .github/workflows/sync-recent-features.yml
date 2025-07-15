@@ -2,25 +2,27 @@ name: Sync recent feature branches
 
 on:
   pull_request_target:
-    types: [closed]
-    branches: [develop]     # ← base が develop の PR が閉じたとき
+    types: [closed]      # ← base ブランチはここでは絞らない
 
 permissions:
   pull-requests: write
 
 jobs:
   sync-recent-features:
-    if: github.event.pull_request.merged == true
+    # develop 向けかつマージされたときだけ実行
+    if: |
+      github.event.pull_request.base.ref == 'develop' &&
+      github.event.pull_request.merged == true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
-
+        with: { fetch-depth: 0, ref: 'develop' }  # develop を必ず取る
       - name: Create PRs for recently updated features
         uses: actions/github-script@v6
         with:
           github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
           script: |
+            // ここは従来のスクリプト
             const OWNER = context.repo.owner;
             const REPO  = context.repo.repo;
             const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

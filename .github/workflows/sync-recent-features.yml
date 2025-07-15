@@ -16,6 +16,7 @@ jobs:
         with:
           github-token: ${{ secrets.GITHUB_TOKEN }}
           script: |
+            console.log('Debugging github object:', github);
             const OWNER = context.repo.owner;
             const REPO  = context.repo.repo;
             const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);

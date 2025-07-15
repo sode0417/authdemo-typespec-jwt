@@ -20,7 +20,7 @@ jobs:
             const OWNER = context.repo.owner;
             const REPO  = context.repo.repo;
             const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
-            const { data: branches } = await github.repos.listBranches({
+            const { data: branches } = await github.rest.repos.listBranches({
               owner: OWNER,
               repo: REPO,
               per_page: 100,

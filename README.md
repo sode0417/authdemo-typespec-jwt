@@ -110,3 +110,8 @@ GitHub Actionsを使用して以下を自動化:
 この行はGitHub Actionsのワークフローをトリガーするために追加されました。
 # 更新履歴
 この行はGitHub Actionsのワークフローをトリガーするために追加されました。
+# Update: Triggering GitHub Actions Workflow
+
+This line was added to trigger the workflow for testing purposes.
+# 更新履歴
+この行はGitHub Actionsのワークフローをトリガーするために追加されました。

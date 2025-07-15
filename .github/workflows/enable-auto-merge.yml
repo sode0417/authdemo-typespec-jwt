@@ -7,7 +7,7 @@ on:
 jobs:
   enable_auto_merge:
     # PR が draft でない場合のみ実行
-    if: ${{ github.event.pull_request.draft == false && github.event.pull_request.base.ref == 'develop' }}
+    if: ${{ github.event.pull_request.draft == false }}
     env:
       PR_NUMBER: ${{ github.event.number }}
     permissions:

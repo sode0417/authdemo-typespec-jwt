@@ -1,19 +1,21 @@
 name: Sync recent feature branches
+
 on:
-  push:
-    branches:
-      - develop
+  pull_request:
+    types: [closed]
+    branches: [develop]
+
 permissions:
   pull-requests: write
 
 jobs:
   sync-recent-features:
+    if: github.event.pull_request.merged == true   # マージされたときだけ
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout full repo
-        uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+
       - name: Create PRs for recently updated features
         uses: actions/github-script@v6
         with:

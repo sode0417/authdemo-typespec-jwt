@@ -1,22 +1,17 @@
 name: Sync recent feature branches
 
 on:
-  workflow_run:
-    workflows: ["Enable auto-merge"]     # ← Auto‑merge を行う WF 名
-    types: [completed]
+  pull_request_target:
+    types: [closed]
+    branches: [develop]     # ← base が develop の PR が閉じたとき
 
 permissions:
   pull-requests: write
 
 jobs:
   sync-recent-features:
-    # ① Auto‑merge WF が success で完了
-    # ② その WF が関連付く PR の base が develop
-    if: |
-      github.event.workflow_run.conclusion == 'success' &&
-      github.event.workflow_run.pull_requests[0].base.ref == 'develop'
+    if: github.event.pull_request.merged == true
     runs-on: ubuntu-latest
-
     steps:
       - uses: actions/checkout@v4
         with: { fetch-depth: 0 }

@@ -1,0 +1,61 @@
+name: Sync recent feature branches
+on:
+  push:
+    branches:
+      - develop
+permissions:
+  pull-requests: write
+
+jobs:
+  sync-recent-features:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout full repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Create PRs for recently updated features
+        uses: actions/github-script@v6
+        with:
+          github-token: ${{ secrets.PERSONAL_ACCESS_TOKEN }}
+          script: |
+            const OWNER = context.repo.owner;
+            const REPO  = context.repo.repo;
+            const oneWeekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+            const { data: branches } = await github.rest.repos.listBranches({
+              owner: OWNER,
+              repo: REPO,
+              per_page: 100,
+            });
+            const featureBranches = branches
+              .map(b => b.name)
+              .filter(name => name.startsWith('feature/'));
+            for (const branch of featureBranches) {
+              const { data: commitData } = await github.rest.repos.getCommit({
+                owner: OWNER,
+                repo: REPO,
+                ref: branch,
+              });
+              const commitDate = new Date(commitData.commit.committer.date);
+              if (commitDate >= oneWeekAgo) {
+                const title = `chore: sync develop → ${branch}`;
+                const body  = `自動更新: \`develop\` の最新を \`${branch}\` に取り込みます。`;
+                try {
+                  await github.rest.pulls.create({
+                    owner: OWNER,
+                    repo: REPO,
+                    head: 'develop',
+                    base: branch,
+                    title,
+                    body,
+                  });
+                  console.log(`:チェックマーク_緑: PR created: develop → ${branch}`);
+                } catch (error) {
+                  if (error.status === 422 && error.message.includes('A pull request already exists')) {
+                    console.log(`:インフォメーション: PR already exists for ${branch}, skipping.`);
+                  } else {
+                    throw error;
+                  }
+                }
+              }
+            }

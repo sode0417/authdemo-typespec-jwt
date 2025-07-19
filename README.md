@@ -1,70 +1,102 @@
-# authdemo-typespec-jwt
+# AuthDemo API
 
-契約駆動で学ぶ認証 API デモ（**TypeSpec → OpenAPI → ASP.NET Core 8**）
+JWT認証を使用したデモAPI
 
-![CI](https://github.com/<your-account>/authdemo-typespec-jwt/actions/workflows/typespec.yml/badge.svg)
+## 開発環境のセットアップ
 
----
+### 必要条件
 
-## 📖 概要
+- .NET 8.0
+- PostgreSQL
+- Node.js (TypeSpecコンパイル用)
 
-このリポジトリは、**TypeSpec** を単一のソースとして *OpenAPI 3.0 YAML* と *C# サーバースタブ* を自動生成し、JWT (Bearer) 認証付き API を実装する学習用プロジェクトです。契約ファーストで API を設計し、実装・テスト・ドキュメントをすべて契約に揃える **Contract‑Driven Development** を体験できます。
+### データベースの準備
 
-## 🗂 ディレクトリ構成
-
-| パス                   | 説明                                            |
-| -------------------- | --------------------------------------------- |
-| `Spec/`              | TypeSpec 契約ファイル (`auth.tsp` など)               |
-| `Generated/`         | 生成物 (OpenAPI YAML / C# スタブ) <br>※ **Git 管理外** |
-| `.github/workflows/` | GitHub Actions 設定                             |
-
-## 🚀 セットアップ (5 分で完了)
-
-```bash
-# 1. クローン
-git clone https://github.com/<your-account>/authdemo-typespec-jwt.git
-cd authdemo-typespec-jwt
-
-# 2. 依存関係インストール
-npm ci
-
-# 3. TypeSpec をコンパイル
-npm run tsp:compile  # => Generated/ に出力
+1. PostgreSQLをインストール
+2. データベースを作成:
+```sql
+CREATE DATABASE authdemo;
 ```
 
-> **必須ツール**
-> ‑ Node.js 20+
-> ‑ .NET SDK 8
-> **推奨**: VS Code 拡張 *TypeSpec for VS Code*（構文ハイライトと補完が有効）
+### アプリケーションの設定
 
-## 🛠 NPM スクリプト
+1. リポジトリをクローン
+```bash
+git clone https://github.com/yourusername/authdemo-typespec-jwt.git
+```
 
-| スクリプト                            | 説明                                                |
-| -------------------------------- | ------------------------------------------------- |
-| `npm run tsp:compile`            | TypeSpec をビルドし OpenAPI & C# スタブを `Generated/` に出力 |
-| `npm run tsp:watch`<br>*(任意で追加)* | `Spec/` を監視し変更時に自動再コンパイル                          |
+2. 依存関係をインストール
+```bash
+cd authdemo-typespec-jwt
+dotnet restore
+```
 
-## 📏 開発ルール
+3. マイグレーションを実行
+```bash
+dotnet ef database update --project src/AuthDemo.Infrastructure --startup-project src/AuthDemo.Api
+```
 
-1. **`Generated/` は手動編集・コミット禁止**
-   必ず `.tsp` を修正して再コンパイルしてください。
-2. すべての変更は **Pull Request** 経由で行い、CI が緑になることを確認します。
-3. 契約変更に合わせてテスト・実装も更新し、親 Issue のチェックリストを反映します。
+4. appsettings.Development.jsonの設定
+```json
+{
+  "ConnectionStrings": {
+    "Default": "Host=localhost;Database=authdemo;Username=postgres;Password=postgres"
+  },
+  "Jwt": {
+    "Issuer": "AuthDemo",
+    "Audience": "AuthDemo"
+  }
+}
+```
 
-## 🤖 CI
+環境変数 `JWT_KEY` に秘密鍵を設定します。
+```bash
+export JWT_KEY=your-development-jwt-key
+```
 
-GitHub Actions *TypeSpec Compile* ワークフローが **push / PR** 時に実行され、
+## APIの実行
 
-* `npm ci → npm run tsp:compile` でビルド
-* 生成物をアーティファクトとして保存
+```bash
+dotnet run --project src/AuthDemo.Api
+```
 
-バッジが緑 = TypeSpec が正常にビルド出来ている証拠です。
+## 認証機能の使用方法
 
-## 🔗 参考リンク
+APIは以下の認証関連エンドポイントを提供:
 
-* [TypeSpec 公式ドキュメント](https://aka.ms/typespec)
-* [.NET 8 SDK ダウンロード](https://dotnet.microsoft.com/download/dotnet/8.0)
+### 1. サインアップ (POST /auth/signup)
+```json
+{
+  "username": "user@example.com",
+  "password": "password123"
+}
+```
 
----
+### 2. サインイン (POST /auth/signin)
+```json
+{
+  "username": "user@example.com",
+  "password": "password123"
+}
+```
+レスポンスとしてJWTトークンが返却されます。
 
-📄 **ライセンス**: MIT
+### 3. 保護されたエンドポイント
+
+認証が必要なエンドポイントにアクセスする際は、HTTPヘッダーにトークンを設定:
+```
+Authorization: Bearer {token}
+```
+
+## Swagger UI
+
+開発環境では、以下のURLでSwagger UIにアクセスできます：
+http://localhost:5173/swagger
+
+## CI/CD
+
+GitHub Actionsを使用して以下を自動化:
+- TypeSpecのコンパイル
+- .NETのビルドとテスト
+- DBマイグレーション
+Actionsテスト用に記載

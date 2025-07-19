@@ -1,1 +1,59 @@
-Generated/**
+#################################
+# .NET / Visual Studio / VS Code
+#################################
+bin/
+obj/
+*.user
+*.suo
+.vs/
+.vscode/
+
+#################################
+# Build 出力
+#################################
+*.pdb
+*.dll
+*.runtimeconfig.json
+
+#################################
+# NuGet design-time / restore キャッシュ
+#################################
+**/obj/**/*.nuget.*
+**/obj/**/project.assets.json
+**/obj/**/project.nuget.cache
+
+#################################
+# EF Core design-time
+#   ─ Designer.cs は自動生成なので除外
+#   ─ *Snapshot.cs は「コミットする派 / しない派」どちらか決めて
+#################################
+**/Migrations/*.Designer.cs
+# **/Migrations/*Snapshot.cs   ← ★スナップショットをコミットしないなら有効化
+
+#################################
+# Node (if any)
+#################################
+node_modules/
+npm-debug.log*
+
+#################################
+# Docker / WSL / 大容量ファイル
+#################################
+*.vhdx
+AppData/Local/Docker/
+DockerDesktop.vhdx
+
+#################################
+# Logs / 一時ファイル / バックアップ
+#################################
+*.log
+*~                                   # 末尾チルダのバックアップ
+
+#################################
+# Dev-only launchSettings / local config
+#################################
+src/**/Properties/launchSettings.json
+src/**/appsettings.Development.json
+Generated/
+src/**/Class1.cs
+.env

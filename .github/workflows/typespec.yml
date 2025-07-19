@@ -1,20 +1,59 @@
-# .github/workflows/typespec.yml
-name: TypeSpec Compile
+name: API Validation
 
 on:
   push:
-    branches: [ main ]          # main 直 push
-  pull_request:                 # すべての PR（main 宛デフォルト）
-    types: [opened, synchronize, reopened]
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
   build:
     runs-on: ubuntu-latest
+    
+    services:
+      postgres:
+        image: postgres:latest
+        env:
+          POSTGRES_DB: authdemo
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: 'npm'
-      - run: npm ci
-      - run: npm run tsp:compile
+    - uses: actions/checkout@v4
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install TypeSpec
+      run: npm install -g @typespec/compiler
+      
+    - name: Compile TypeSpec
+      run: tsp compile Spec/main.tsp --warn-as-error
+      
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
+      run: dotnet restore
+      
+    - name: Build
+      run: dotnet build --no-restore
+      
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+      env:
+        ConnectionStrings__Default: "Host=localhost;Database=authdemo;Username=postgres;Password=postgres"
+        Jwt__Issuer: "https://localhost:5173"
+        Jwt__Audience: "https://localhost:5173"
+        Jwt__Key: "your-256-bit-secret-key-here-use-env-in-production"

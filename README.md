@@ -99,4 +99,3 @@ GitHub Actionsを使用して以下を自動化:
 - TypeSpecのコンパイル
 - .NETのビルドとテスト
 - DBマイグレーション
-Actionsテスト用に記載

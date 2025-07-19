@@ -24,6 +24,16 @@ public static class JwtAuthenticationExtensions
             throw new InvalidOperationException("JwtOptions configuration is missing");
         }
 
+        var envKey = Environment.GetEnvironmentVariable("JWT_KEY");
+        if (!string.IsNullOrWhiteSpace(envKey))
+        {
+            jwtOptions.Key = envKey;
+        }
+        if (string.IsNullOrWhiteSpace(jwtOptions.Key))
+        {
+            throw new InvalidOperationException("JWT key is not configured");
+        }
+
         // JWT Bearer認証を追加
         services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
             .AddJwtBearer(options =>
@@ -33,11 +43,30 @@ public static class JwtAuthenticationExtensions
                     ValidateIssuer = true,
                     ValidateAudience = true,
                     ValidateLifetime = true,
+                    RequireExpirationTime = true,
                     ValidateIssuerSigningKey = true,
+                    RequireSignedTokens = true,
+                    ClockSkew = TimeSpan.Zero,
                     ValidIssuer = jwtOptions.Issuer,
                     ValidAudience = jwtOptions.Audience,
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(jwtOptions.Key))
+                };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnAuthenticationFailed = ctx =>
+                    {
+                        ctx.NoResult();
+                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    },
+                    OnChallenge = ctx =>
+                    {
+                        ctx.HandleResponse();
+                        ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;
+                        return Task.CompletedTask;
+                    }
                 };
             });
 

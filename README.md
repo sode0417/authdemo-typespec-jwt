@@ -43,11 +43,15 @@ dotnet ef database update --project src/AuthDemo.Infrastructure --startup-projec
     "Default": "Host=localhost;Database=authdemo;Username=postgres;Password=postgres"
   },
   "Jwt": {
-    "Issuer": "https://localhost:5173",
-    "Audience": "https://localhost:5173",
-    "Key": "your-256-bit-secret-key-here-use-env-in-production"
+    "Issuer": "AuthDemo",
+    "Audience": "AuthDemo"
   }
 }
+```
+
+環境変数 `JWT_KEY` に秘密鍵を設定します。
+```bash
+export JWT_KEY=your-development-jwt-key
 ```
 
 ## APIの実行
@@ -95,3 +99,4 @@ GitHub Actionsを使用して以下を自動化:
 - TypeSpecのコンパイル
 - .NETのビルドとテスト
 - DBマイグレーション
+Actionsテスト用に記載

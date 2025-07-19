@@ -1,8 +1,9 @@
 name: Sync recent feature branches
 
 on:
-  pull_request_target:
-    types: [closed]      # ← base ブランチはここでは絞らない
+  pull_request:
+    types: [closed]
+    branches: [develop]
 
 permissions:
   pull-requests: write

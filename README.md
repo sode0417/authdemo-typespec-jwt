@@ -1,151 +1,102 @@
-# authdemo-typespec-jwt
+# AuthDemo API
 
-契約駆動で学ぶ認証 API デモ  
-**TypeSpec → OpenAPI → ASP.NET Core 8 + EF Core 8 + PostgreSQL + JWT**
+JWT認証を使用したデモAPI
 
-[![CI](https://github.com/sode0417/authdemo-typespec-jwt/actions/workflows/ci.yml/badge.svg)](https://github.com/sode0417/authdemo-typespec-jwt/actions/workflows/ci.yml)
+## 開発環境のセットアップ
 
----
+### 必要条件
 
-## 📖 概要
+- .NET 8.0
+- PostgreSQL
+- Node.js (TypeSpecコンパイル用)
 
-* **TypeSpec** で API 契約 (`.tsp`) を書く  
-* ~~OpenAPI だけ~~ → *OpenAPI 3.0 YAML* と *C# Minimal-API スタブ* を **自動生成**  
-* **EF Core 8** & **PostgreSQL 16** で永続化  
-* **JWT (Bearer)** 認証を実装予定
+### データベースの準備
 
-“契約ファースト” で **実装・テスト・ドキュメント** を 1 枚の契約に揃える  
-**Contract-Driven Development** をハンズオンで体験できます。
-
----
-
-## 🗂️ プロジェクト構成
-
-| パス | 役割 |
-|------|------|
-| `Spec/` | TypeSpec 契約 (`auth.tsp` など) |
-| `Generated/` | OpenAPI YAML / C# スタブ **※Git 管理しない** |
-| `src/AuthDemo.Api/` | ASP.NET Core 8 ― Web API (Minimal) |
-| `src/AuthDemo.Infrastructure/` | `ApplicationDbContext`, エンティティ, マイグレーション |
-| `.github/workflows/` | CI (TypeSpec + .NET + Postgres) |
-
----
-
-## 🚀 クイックスタート
-
-```bash
-# 1. Clone
-git clone https://github.com/sode0417/authdemo-typespec-jwt.git
-cd authdemo-typespec-jwt
-
-# 2. Install deps
-npm ci            # TypeSpec
-dotnet restore    # .NET projects
-
-# 3. Compile TypeSpec → OpenAPI & C#
-npm run tsp:compile           # => Generated/
-
-# 4. Start PostgreSQL
-docker compose up -d db       # service name = "db"
-
-# 5. (first time only) apply migrations
-dotnet ef database update \
-  -p src/AuthDemo.Infrastructure \
-  -s src/AuthDemo.Api
-
-# 6. Run API
-dotnet run --project src/AuthDemo.Api
-# → http://localhost:5173  (Swagger = /swagger)
-````
-
-> **必要ツール**
->
-> * **Node.js 20+**
-> * **.NET SDK 8.x**
-> * **Docker Desktop + WSL2** (Windows) ／ **Docker Engine** (macOS/Linux)
->   *（任意）VS Code 拡張 *TypeSpec for VS Code* – 構文ハイライト & 補完*
-
----
-
-## 🐘 PostgreSQL 接続文字列
-
-| 用途                      | 例                                                                                           | 補足                                                                                  |
-| ----------------------- | ------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------- |
-| **ローカル開発**              | `Host=host.docker.internal;Port=5432;Database=authdemo;Username=postgres;Password=postgres` | Docker Desktop から Windows ホストへ                                                      |
-| **CI / GitHub Actions** | `Pg__ConnectionString` 環境変数                                                                 | 例: `Host=localhost;Port=5432;Database=authdemo;Username=postgres;Password=postgres` |
-
-* `appsettings.Development.json` の DSN → ローカル用
-* **本番 / CI** は環境変数で上書き
-
----
-
-## 💡 NPM スクリプト
-
-| スクリプト         | 説明                              |
-| ------------- | ------------------------------- |
-| `tsp:compile` | TypeSpec をビルドし `Generated/` へ出力 |
-| `tsp:watch`   | `Spec/` を監視して自動再ビルド             |
-
----
-
-## 🤖 CI（GitHub Actions）
-
-```yaml
-# .github/workflows/ci.yml
-services:
-  postgres:
-    image: postgres:16-alpine
-    env:
-      POSTGRES_PASSWORD: postgres
-      POSTGRES_DB: authdemo
-    ports: ['5432:5432']
-
-steps:
-  - uses: actions/checkout@v4
-
-  - name: Setup .NET 8
-    uses: actions/setup-dotnet@v3
-    with: { dotnet-version: '8.0.x' }
-
-  - name: Restore & Build
-    run: dotnet build --configuration Release --no-restore
-
-  - name: Apply EF Core migrations
-    env:
-      Pg__ConnectionString: Host=localhost;Port=5432;Database=authdemo;Username=postgres;Password=postgres
-    run: dotnet ef database update --no-build \
-          -p src/AuthDemo.Infrastructure -s src/AuthDemo.Api
+1. PostgreSQLをインストール
+2. データベースを作成:
+```sql
+CREATE DATABASE authdemo;
 ```
 
-バッジが **緑** = TypeSpec ビルド & マイグレーションが成功。
+### アプリケーションの設定
 
----
+1. リポジトリをクローン
+```bash
+git clone https://github.com/yourusername/authdemo-typespec-jwt.git
+```
 
-## 📏 開発ルール
+2. 依存関係をインストール
+```bash
+cd authdemo-typespec-jwt
+dotnet restore
+```
 
-1. **`Generated/` はコミットしない**
-   契約を変えたら `npm run tsp:compile` を忘れずに。
-2. 変更は **Pull Request** 経由。CI を緑にしてマージ。
-3. 親 Issue に紐づくチェックリストを更新して **CDD** を徹底。
+3. マイグレーションを実行
+```bash
+dotnet ef database update --project src/AuthDemo.Infrastructure --startup-project src/AuthDemo.Api
+```
 
----
+4. appsettings.Development.jsonの設定
+```json
+{
+  "ConnectionStrings": {
+    "Default": "Host=localhost;Database=authdemo;Username=postgres;Password=postgres"
+  },
+  "Jwt": {
+    "Issuer": "AuthDemo",
+    "Audience": "AuthDemo"
+  }
+}
+```
 
-## 📝 よくあるハマりポイント
+環境変数 `JWT_KEY` に秘密鍵を設定します。
+```bash
+export JWT_KEY=your-development-jwt-key
+```
 
-| 症状                                                        | 原因 & 解決                                                                                                     |
-| --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------- |
-| `…doesn't reference Microsoft.EntityFrameworkCore.Design` | *Design* パッケージは **どこか 1 プロジェクト**にあれば OK。<br>`src/AuthDemo.Infrastructure` だけに入れて `PrivateAssets="all"` にする。 |
-| `Connection refused (127.0.0.1:5432)`                     | Docker 版 Postgres へ接続するときは **`host.docker.internal`** を使う（Windows/mac）。                                     |
-| マイグレーション No actions                                       | 既に DB が最新。`dotnet ef migrations add <name>` で追加 → `database update`                                         |
+## APIの実行
 
----
+```bash
+dotnet run --project src/AuthDemo.Api
+```
 
-## 🔗 参考リンク
+## 認証機能の使用方法
 
-* **TypeSpec** – [https://aka.ms/typespec](https://aka.ms/typespec)
-* **.NET 8 SDK** – [https://dotnet.microsoft.com/download/dotnet/8.0](https://dotnet.microsoft.com/download/dotnet/8.0)
-* **EF Core + PostgreSQL (Npgsql)** – [https://learn.microsoft.com/ef/core/providers/npgsql/](https://learn.microsoft.com/ef/core/providers/npgsql/)
+APIは以下の認証関連エンドポイントを提供:
 
----
+### 1. サインアップ (POST /auth/signup)
+```json
+{
+  "username": "user@example.com",
+  "password": "password123"
+}
+```
 
-📄 **License**: MIT
+### 2. サインイン (POST /auth/signin)
+```json
+{
+  "username": "user@example.com",
+  "password": "password123"
+}
+```
+レスポンスとしてJWTトークンが返却されます。
+
+### 3. 保護されたエンドポイント
+
+認証が必要なエンドポイントにアクセスする際は、HTTPヘッダーにトークンを設定:
+```
+Authorization: Bearer {token}
+```
+
+## Swagger UI
+
+開発環境では、以下のURLでSwagger UIにアクセスできます：
+http://localhost:5173/swagger
+
+## CI/CD
+
+GitHub Actionsを使用して以下を自動化:
+- TypeSpecのコンパイル
+- .NETのビルドとテスト
+- DBマイグレーション
+Actionsテスト用に記載

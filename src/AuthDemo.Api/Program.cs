@@ -1,14 +1,10 @@
-using AuthDemo.Infrastructure.Persistence;
-using Microsoft.EntityFrameworkCore;
+using AuthDemo.Api.Extensions;
 
 var builder = WebApplication.CreateBuilder(args);
-
-// DbContext を登録
-builder.Services.AddDbContextPool<ApplicationDbContext>(opts =>
-    opts.UseNpgsql(builder.Configuration.GetConnectionString("Default")));
+builder.Services.AddApplicationServices(builder.Configuration);
 
 var app = builder.Build();
-
-app.MapGet("/", () => "Hello AuthDemo!");
-
+app.ConfigureEndpoints();
 app.Run();
+
+public partial class Program { }

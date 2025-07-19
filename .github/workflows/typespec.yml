@@ -1,4 +1,4 @@
-name: CI
+name: API Validation
 
 on:
   push:
@@ -7,65 +7,53 @@ on:
     branches: [ main ]
 
 jobs:
-  build-test:
+  build:
     runs-on: ubuntu-latest
-
-    ### ❶ Postgres ― GitHub Hosted Runner 上に DB を建てる
+    
     services:
       postgres:
-        image: postgres:16-alpine
+        image: postgres:latest
         env:
-          POSTGRES_PASSWORD: postgres
           POSTGRES_DB: authdemo
-        # ↓ ランナー ↔ DB の疎通
-        ports: ['5432:5432']
-        # ヘルスチェック (30s × 20 = 最大10分待機)
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
         options: >-
-          --health-cmd="pg_isready -U postgres"
-          --health-interval=30s
-          --health-timeout=5s
-          --health-retries=20
-
-    env:
-      # EF Core から参照される DSN
-      Pg__ConnectionString: Host=localhost;Port=5432;Database=authdemo;Username=postgres;Password=postgres
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
-    ### ❷ リポジトリ取得
     - uses: actions/checkout@v4
-
-    ### ❸ Node / TypeSpec
-    - name: Setup Node.js 20
-      uses: actions/setup-node@v4
-      with: { node-version: '20' }
-
-    - name: Install npm deps & compile TypeSpec
-      run: |
-        npm ci
-        npm run tsp:compile     # => Generated/
-
-    ### ❹ .NET
-    - name: Setup .NET 8
+    
+    - name: Setup Node.js
+      uses: actions/setup-node@v3
+      with:
+        node-version: '18'
+        
+    - name: Install TypeSpec
+      run: npm install -g @typespec/compiler
+      
+    - name: Compile TypeSpec
+      run: tsp compile Spec/main.tsp --warn-as-error
+      
+    - name: Setup .NET
       uses: actions/setup-dotnet@v3
-      with: { dotnet-version: '8.0.x' }
-
-    # Install EF Core tools
-    - name: Install Entity Framework Core tools
-      run: dotnet tool install --global dotnet-ef
-
-    # ソリューション全体をリストア & ビルド
-    - name: Restore NuGet packages
+      with:
+        dotnet-version: '8.0.x'
+        
+    - name: Restore dependencies
       run: dotnet restore
-
-    - name: Build solution
-      run: dotnet build --configuration Release
-
-    # ❺ マイグレーション適用 (Infrastructure → Api)
-    - name: Apply EF Core migrations
-      run: |
-        cd src/AuthDemo.Api
-        dotnet ef database update \
-          --project ../AuthDemo.Infrastructure \
-          --startup-project .
-
-    ### ❻ 単体テストがあればここで dotnet test …
+      
+    - name: Build
+      run: dotnet build --no-restore
+      
+    - name: Test
+      run: dotnet test --no-build --verbosity normal
+      env:
+        ConnectionStrings__Default: "Host=localhost;Database=authdemo;Username=postgres;Password=postgres"
+        Jwt__Issuer: "https://localhost:5173"
+        Jwt__Audience: "https://localhost:5173"
+        Jwt__Key: "your-256-bit-secret-key-here-use-env-in-production"

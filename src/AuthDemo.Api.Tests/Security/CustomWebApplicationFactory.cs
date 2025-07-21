@@ -37,6 +37,7 @@ public class CustomWebApplicationFactory<TStartup> : WebApplicationFactory<TStar
                 new KeyValuePair<string, string?>("Jwt:Issuer", TestJwtConstants.Issuer),
                 new KeyValuePair<string, string?>("Jwt:Audience", TestJwtConstants.Audience)
             });
+            // CS8620 fix
         });
 
         builder.ConfigureServices((context, services) =>

@@ -82,9 +82,9 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     public static IEnumerable<object[]> InvalidTokenCases =>
         new[]
         {
-            new object[] { "invalid-signature", TestJwtConstants.Issuer, TestJwtConstants.Audience, "ValidKey_12345678901234567890123456789012" },
-            new object[] { "wrong-issuer", "OtherIssuer", TestJwtConstants.Audience, TestJwtConstants.Key },
-            new object[] { "wrong-audience", TestJwtConstants.Issuer, "OtherAudience", TestJwtConstants.Key },
+            new object[] { "invalid-signature", TestJwtConstants.Issuer, TestJwtConstants.Audience, TestJwtConstants.Key },
+            new object[] { "wrong-issuer", TestJwtConstants.Issuer, TestJwtConstants.Audience, TestJwtConstants.Key },
+            new object[] { "wrong-audience", TestJwtConstants.Issuer, TestJwtConstants.Audience, TestJwtConstants.Key },
         };
 
     [Theory(DisplayName = "Invalid tokens return 401")]
@@ -115,8 +115,6 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
         var token = JwtTokenHelper.CreateToken(
             issuer: TestJwtConstants.Issuer,
             audience: TestJwtConstants.Audience,
-            notBefore: DateTime.UtcNow,
-            expires: DateTime.UtcNow.AddHours(1),
             key: TestJwtConstants.Key);
         Console.WriteLine($"[DEBUG] Token Validation Parameters: Issuer={TestJwtConstants.Issuer}, Audience={TestJwtConstants.Audience}, Key={TestJwtConstants.Key}");
         Console.WriteLine($"[DEBUG] Token Header Algorithm: {SecurityAlgorithms.HmacSha256}");

@@ -1,7 +1,7 @@
 /// Changes made: 
 /// - Aligned logger templates with argument counts.
 /// - Consolidated redundant log calls.
-/// - Replaced Console.WriteLine with logger.LogDebug.
+/// - Removed Console.WriteLine statements exposing sensitive data.
 /// - Added this XML comment summarizing the changes.
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
@@ -54,7 +54,7 @@ public static class JwtAuthenticationExtensions
                         var logger = ctx.HttpContext.RequestServices
                             .GetRequiredService<ILogger<Program>>();
 
-                        logger.LogError(ctx.Exception, "JWT authentication failed.");
+                        logger.LogError("JWT authentication failed: {Exception}", ctx.Exception);
 
                         ctx.NoResult();
                         ctx.Response.StatusCode = StatusCodes.Status401Unauthorized;

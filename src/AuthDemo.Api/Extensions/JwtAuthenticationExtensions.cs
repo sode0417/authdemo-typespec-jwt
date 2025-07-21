@@ -24,11 +24,12 @@ public static class JwtAuthenticationExtensions
             throw new InvalidOperationException("JwtOptions configuration is missing");
         }
 
-        var envKey = Environment.GetEnvironmentVariable("JWT_KEY");
-        if (!string.IsNullOrWhiteSpace(envKey))
+        var key = configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
+        if (string.IsNullOrWhiteSpace(key))
         {
-            jwtOptions.Key = envKey;
+            throw new InvalidOperationException("JWT key is not configured");
         }
+        jwtOptions.Key = key;
         if (string.IsNullOrWhiteSpace(jwtOptions.Key))
         {
             throw new InvalidOperationException("JWT key is not configured");
@@ -68,6 +69,10 @@ public static class JwtAuthenticationExtensions
                         return Task.CompletedTask;
                     }
                 };
+                // Log validation parameters for debugging
+                Console.WriteLine($"ValidIssuer: {jwtOptions.Issuer}");
+                Console.WriteLine($"ValidAudience: {jwtOptions.Audience}");
+                Console.WriteLine($"IssuerSigningKey: {jwtOptions.Key}");
             });
 
         return services;

@@ -51,7 +51,7 @@ dotnet ef database update --project src/AuthDemo.Infrastructure --startup-projec
 
 環境変数 `JWT_KEY` に秘密鍵を設定します。
 ```bash
-export JWT_KEY=your-development-jwt-key
+export JWT_KEY=SuperSecretKeyWith32BytesMinimum
 ```
 
 ## APIの実行

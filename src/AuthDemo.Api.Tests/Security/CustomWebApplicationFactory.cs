@@ -43,11 +43,14 @@ public class CustomWebApplicationFactory<TStartup> : WebApplicationFactory<TStar
         builder.ConfigureServices((context, services) =>
         {
             services.Configure<JwtOptions>(options =>
-        {
-            options.Key = TestJwtConstants.Key;
-            options.Issuer = TestJwtConstants.Issuer;
-            options.Audience = TestJwtConstants.Audience;
-        });
+            {
+                options = new JwtOptions
+                {
+                    Key = TestJwtConstants.Key,
+                    Issuer = TestJwtConstants.Issuer,
+                    Audience = TestJwtConstants.Audience
+                };
+            });
         });
 
         builder.ConfigureServices(services =>

@@ -1,3 +1,8 @@
+/// Changes made: 
+/// - Aligned logger templates with argument counts.
+/// - Consolidated redundant log calls.
+/// - Replaced Console.WriteLine with logger.LogDebug.
+/// - Added this XML comment summarizing the changes.
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using AuthDemo.Api.Options;

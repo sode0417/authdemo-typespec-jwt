@@ -16,6 +16,7 @@ public static class JwtTokenHelper
 {
     /// <summary>
     /// Creates a JWT token with the specified parameters for testing purposes.
+    /// Updated to allow nullable DateTime? for notBefore and expires parameters.
     /// </summary>
     /// <param name="issuer">The issuer of the token.</param>
     /// <param name="audience">The audience of the token.</param>
@@ -28,9 +29,13 @@ public static class JwtTokenHelper
         string? audience = "AuthDemo",
         DateTime? notBefore = null,
         DateTime? expires = null,
-        string? key = "TestSecretKey_for_unit_tests_12345678901234567890123456789012") // 32文字以上
+        string key = "TestSecretKey_for_unit_tests_12345678901234567890123456789012") // 32文字以上
     {
-        var keyBytes = Encoding.UTF8.GetBytes(key!);
+        if (string.IsNullOrEmpty(key))
+        {
+            throw new ArgumentNullException(nameof(key), "Key cannot be null or empty.");
+        }
+        var keyBytes = Encoding.UTF8.GetBytes(key.PadRight(32, '0')); // Ensure key is at least 256 bits
         Console.WriteLine($"[DEBUG] Raw Signing Key Bytes: {BitConverter.ToString(keyBytes)}");
         Console.WriteLine($"[DEBUG] Token Generation Algorithm: {SecurityAlgorithms.HmacSha256}");
 
@@ -56,7 +61,20 @@ public static class JwtTokenHelper
         var token = new JwtSecurityToken(header, payload);
 
         var handler = new JwtSecurityTokenHandler();
-        var tokenString = handler.WriteToken(token);
+        if (string.IsNullOrEmpty(key))
+        {
+            throw new ArgumentNullException(nameof(key), "Key cannot be null or empty.");
+        }
+        var signingCredentials = new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256);
+        var jwtToken = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: payload.Claims,
+            notBefore: notBefore ?? DateTime.UtcNow,
+            expires: expires ?? DateTime.UtcNow.AddMinutes(30),
+            signingCredentials: signingCredentials
+        );
+        var tokenString = handler.WriteToken(jwtToken);
 
         // Decode and log the token header for debugging
         var parts = tokenString.Split('.');

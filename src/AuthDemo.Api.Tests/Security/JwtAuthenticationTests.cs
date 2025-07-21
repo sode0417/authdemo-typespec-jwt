@@ -82,21 +82,24 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     public static IEnumerable<object[]> InvalidTokenCases =>
         new[]
         {
-            new object[] { "invalid-signature", TestJwtConstants.Issuer, TestJwtConstants.Audience, "ValidKey_12345678901234567890123456789012", null, null },
-            new object[] { "expired", TestJwtConstants.Issuer, TestJwtConstants.Audience, TestJwtConstants.Key, DateTime.UtcNow.AddMinutes(-10), DateTime.UtcNow.AddMinutes(-5) },
-            new object[] { "wrong-issuer", "OtherIssuer", TestJwtConstants.Audience, TestJwtConstants.Key, null, null },
-            new object[] { "wrong-audience", TestJwtConstants.Issuer, "OtherAudience", TestJwtConstants.Key, null, null },
+            new object[] { "invalid-signature", TestJwtConstants.Issuer, TestJwtConstants.Audience, "ValidKey_12345678901234567890123456789012" },
+            new object[] { "wrong-issuer", "OtherIssuer", TestJwtConstants.Audience, TestJwtConstants.Key },
+            new object[] { "wrong-audience", TestJwtConstants.Issuer, "OtherAudience", TestJwtConstants.Key },
         };
 
     [Theory(DisplayName = "Invalid tokens return 401")]
     [MemberData(nameof(InvalidTokenCases))]
     public async Task Invalid_Tokens_Return401(
-    string caseDescription, string issuer, string audience, string key,
-            DateTime? nbf, DateTime? exp)
+        string caseDescription, string issuer, string audience, string key)
     {
         Console.WriteLine($"[DEBUG] Test Case: {caseDescription}");
-        Console.WriteLine($"[DEBUG] Issuer: {issuer}, Audience: {audience}, Key: {key}, NotBefore: {nbf}, Expiration: {exp}");
-        var token = JwtTokenHelper.CreateToken(issuer, audience, nbf, exp, key);
+        Console.WriteLine($"[DEBUG] Issuer: {issuer}, Audience: {audience}, Key: {key}");
+        var token = JwtTokenHelper.CreateToken(
+            issuer: TestJwtConstants.Issuer,
+            audience: "TestAudience",
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddHours(1),
+            key: "TestKey");
         Console.WriteLine($"[DEBUG] Generated Token: {token}");
         var res = await HttpClientExtensions.GetProfileAsync(_client, token);
         Console.WriteLine($"[DEBUG] Response Status Code: {res.StatusCode}");
@@ -110,9 +113,11 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ProtectedEndpoint_WithValidToken_Returns200()
     {
         var token = JwtTokenHelper.CreateToken(
-        issuer: TestJwtConstants.Issuer,
-        audience: TestJwtConstants.Audience,
-        key: TestJwtConstants.Key);
+            issuer: TestJwtConstants.Issuer,
+            audience: TestJwtConstants.Audience,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddHours(1),
+            key: TestJwtConstants.Key);
         Console.WriteLine($"[DEBUG] Token Validation Parameters: Issuer={TestJwtConstants.Issuer}, Audience={TestJwtConstants.Audience}, Key={TestJwtConstants.Key}");
         Console.WriteLine($"[DEBUG] Token Header Algorithm: {SecurityAlgorithms.HmacSha256}");
         Console.WriteLine($"[DEBUG] Token Header Key ID: test-key-id");

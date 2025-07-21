@@ -30,11 +30,12 @@ public class CustomWebApplicationFactory<TStartup> : WebApplicationFactory<TStar
 
         builder.ConfigureAppConfiguration((context, configBuilder) =>
         {
+            /// Updated to use KeyValuePair.Create for cleaner syntax and null-safe values.
             configBuilder.AddInMemoryCollection(new[]
             {
-                new KeyValuePair<string, string>("Jwt:Key", TestJwtConstants.Key ?? string.Empty), // Handle nullability
-                new KeyValuePair<string, string>("Jwt:Issuer", TestJwtConstants.Issuer ?? string.Empty), // Handle nullability
-                new KeyValuePair<string, string>("Jwt:Audience", TestJwtConstants.Audience ?? string.Empty) // Handle nullability
+                new KeyValuePair<string, string?>("Jwt:Key", TestJwtConstants.Key),
+                new KeyValuePair<string, string?>("Jwt:Issuer", TestJwtConstants.Issuer),
+                new KeyValuePair<string, string?>("Jwt:Audience", TestJwtConstants.Audience)
             });
         });
 

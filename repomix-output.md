@@ -40,6 +40,7 @@ The content is organized as follows:
 .gitignore
 appsettings.Development.json
 AuthDemo.sln
+Directory.Build.props
 docker-compose.yml
 package.json
 README.md
@@ -165,6 +166,15 @@ src/**/appsettings.Development.json
 Generated/
 src/**/Class1.cs
 .env
+````
+
+## File: Directory.Build.props
+````
+<Project>
+  <PropertyGroup>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+  </PropertyGroup>
+</Project>
 ````
 
 ## File: docker-compose.yml
@@ -1929,48 +1939,6 @@ model ErrorResponse {
 }
 ````
 
-## File: src/AuthDemo.Api.Tests/Helpers/HttpClientExtensions.cs
-````csharp
-#nullable enable
-
-using System;
-using System.Net.Http;
-using System.Net.Http.Headers;
-using System.Threading.Tasks;
-
-namespace AuthDemo.Api.Tests.Helpers;
-
-internal static class HttpClientExtensions
-{
-    /// <summary>Bearer トークン付き GET /profile を発行。</summary>
-    internal static Task<HttpResponseMessage> GetProfileAsync(
-        this HttpClient client, string token)
-    {
-        var req = new HttpRequestMessage(HttpMethod.Get, "/profile");
-        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        return client.SendAsync(req);
-    }
-
-}
-````
-
-## File: src/AuthDemo.Api/Common/TestJwtConstants.cs
-````csharp
-#nullable enable
-namespace AuthDemo.Api.Common;
-
-/// <summary>
-/// JWT 設定値をテスト・本番共通で保持する。
-/// </summary>
-public static class TestJwtConstants
-{
-    public const string Issuer = "AuthDemo";
-    public const string Audience = "AuthDemo";
-    // 32 byte (以上) のキーを必ず維持
-    public const string Key = "TestSecretKey_for_unit_tests_12345678901234567890";
-}
-````
-
 ## File: src/AuthDemo.Api/Models/AuthModels.cs
 ````csharp
 namespace AuthDemo.Api.Models;
@@ -2029,181 +1997,45 @@ public class User
 </Project>
 ````
 
-## File: src/AuthDemo.Api.Tests/Security/CustomWebApplicationFactory.cs
+## File: src/AuthDemo.Api.Tests/Helpers/HttpClientExtensions.cs
 ````csharp
 #nullable enable
 
 using System;
-using System.Collections.Generic;
-using Microsoft.AspNetCore.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
-using Microsoft.AspNetCore.Mvc.Testing;
-using AuthDemo.Api.Common;
-using AuthDemo.Api.Options;
+using System.Net.Http;
+using System.Net.Http.Headers;
+using System.Threading.Tasks;
 
-namespace AuthDemo.Api.Tests.Security;
+namespace AuthDemo.Api.Tests.Helpers;
 
-/// <summary>
-/// Custom factory for configuring the web application during tests.
-/// </summary>
-public class CustomWebApplicationFactory<TStartup> : WebApplicationFactory<TStartup> where TStartup : class
+internal static class HttpClientExtensions
 {
-    /// <summary>
-    /// Configures the web host for testing purposes.
-    /// </summary>
-    /// <param name="builder">The web host builder to configure.</param>
-    protected override void ConfigureWebHost(IWebHostBuilder builder)
+    /// <summary>Bearer トークン付き GET /profile を発行。</summary>
+    internal static Task<HttpResponseMessage> GetProfileAsync(
+        this HttpClient client, string token)
     {
-        builder.UseEnvironment("Testing");
-
-        Environment.SetEnvironmentVariable("JWT_KEY", TestJwtConstants.Key);
-        Environment.SetEnvironmentVariable("JWT_ISSUER", TestJwtConstants.Issuer);
-        Environment.SetEnvironmentVariable("JWT_AUDIENCE", TestJwtConstants.Audience);
-
-        builder.ConfigureAppConfiguration((context, configBuilder) =>
-        {
-            configBuilder.AddInMemoryCollection(new[]
-            {
-                new KeyValuePair<string, string>("Jwt:Key", TestJwtConstants.Key ?? string.Empty), // Handle nullability
-                new KeyValuePair<string, string>("Jwt:Issuer", TestJwtConstants.Issuer ?? string.Empty), // Handle nullability
-                new KeyValuePair<string, string>("Jwt:Audience", TestJwtConstants.Audience ?? string.Empty) // Handle nullability
-            });
-        });
-
-        builder.ConfigureServices((context, services) =>
-        {
-            services.Configure<JwtOptions>(options =>
-        {
-            options.Key = TestJwtConstants.Key;
-            options.Issuer = TestJwtConstants.Issuer;
-            options.Audience = TestJwtConstants.Audience;
-        });
-        });
-
-        builder.ConfigureServices(services =>
-        {
-            // Additional service configuration if needed
-        });
+        var req = new HttpRequestMessage(HttpMethod.Get, "/profile");
+        req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        return client.SendAsync(req);
     }
+
 }
 ````
 
-## File: src/AuthDemo.Api.Tests/Security/JwtTokenHelper.cs
+## File: src/AuthDemo.Api/Common/TestJwtConstants.cs
 ````csharp
 #nullable enable
-
-using System;
-using System.IdentityModel.Tokens.Jwt;
-using System.Security.Claims;
-using System.Security.Cryptography;
-using System.Text;
-using Microsoft.IdentityModel.Tokens;
-
-namespace AuthDemo.Api.Tests.Security;
+namespace AuthDemo.Api.Common;
 
 /// <summary>
-/// Provides helper methods for creating JWT tokens during tests.
+/// JWT 設定値をテスト・本番共通で保持する。
 /// </summary>
-public static class JwtTokenHelper
+public static class TestJwtConstants
 {
-    /// <summary>
-    /// Creates a JWT token with the specified parameters for testing purposes.
-    /// </summary>
-    /// <param name="issuer">The issuer of the token.</param>
-    /// <param name="audience">The audience of the token.</param>
-    /// <param name="notBefore">The start time of the token validity.</param>
-    /// <param name="expires">The expiration time of the token.</param>
-    /// <param name="key">The secret key used for signing the token.</param>
-    /// <returns>A signed JWT token as a string.</returns>
-    public static string CreateToken(
-        string? issuer = "AuthDemo",
-        string? audience = "AuthDemo",
-        DateTime? notBefore = null,
-        DateTime? expires = null,
-        string? key = "TestSecretKey_for_unit_tests_12345678901234567890123456789012") // 32文字以上
-    {
-        var keyBytes = Encoding.UTF8.GetBytes(key!);
-        Console.WriteLine($"[DEBUG] Raw Signing Key Bytes: {BitConverter.ToString(keyBytes)}");
-        Console.WriteLine($"[DEBUG] Token Generation Algorithm: {SecurityAlgorithms.HmacSha256}");
-
-        var securityKey = new SymmetricSecurityKey(keyBytes);
-        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-
-        // Create the token header manually to include the kid
-        var header = new JwtHeader(credentials)
-        {
-            { "kid", "test-key-id" }
-        };
-
-        // Create the token payload
-        var payload = new JwtPayload(
-            issuer: issuer,
-            audience: audience,
-            claims: null,
-            notBefore: notBefore ?? DateTime.UtcNow,
-            expires: expires ?? DateTime.UtcNow.AddMinutes(30)
-        );
-
-        // Create the token
-        var token = new JwtSecurityToken(header, payload);
-
-        var handler = new JwtSecurityTokenHandler();
-        var tokenString = handler.WriteToken(token);
-
-        // Decode and log the token header for debugging
-        var parts = tokenString.Split('.');
-        if (parts.Length == 3)
-        {
-            string DecodeBase64Url(string input)
-            {
-                string base64 = input.Replace('-', '+').Replace('_', '/');
-                switch (base64.Length % 4)
-                {
-                    case 2: base64 += "=="; break;
-                    case 3: base64 += "="; break;
-                }
-                return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
-            }
-
-            var decodedHeader = DecodeBase64Url(parts[0]);
-            Console.WriteLine($"[DEBUG] Decoded Token Header: {decodedHeader}");
-
-            // Compute the signature for comparison
-            using var hmac = new HMACSHA256(keyBytes);
-            var expectedSignatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(parts[0] + "." + parts[1]));
-            var expectedSignature = Convert.ToBase64String(expectedSignatureBytes)
-                .Replace('+', '-')
-                .Replace('/', '_')
-                .TrimEnd('=');
-            Console.WriteLine($"[DEBUG] Expected Signature: {expectedSignature}");
-
-            // Manual validation logic for debugging
-            if (parts.Length == 3)
-            {
-                var actualSignature = parts[2];
-                Console.WriteLine($"[DEBUG] Actual Signature: {actualSignature}");
-                if (expectedSignature == actualSignature)
-                {
-                    Console.WriteLine("[DEBUG] Signature validation succeeded.");
-                }
-                else
-                {
-                    Console.WriteLine("[DEBUG] Signature validation failed.");
-                }
-            }
-            else
-            {
-                Console.WriteLine("[DEBUG] Token structure is invalid.");
-            }
-        }
-        else
-        {
-            Console.WriteLine("[DEBUG] Token structure is invalid.");
-        }
-
-        return tokenString;
-    }
+    public const string Issuer = "AuthDemo";
+    public const string Audience = "AuthDemo";
+    // 32 byte (以上) のキーを必ず維持
+    public const string Key = "TestSecretKey_for_unit_tests_12345678901234567890";
 }
 ````
 
@@ -2310,73 +2142,199 @@ model BearerAuth extends TypeSpec.Http.BearerAuth {
 interface Operations extends AuthOperations {}
 ````
 
-## File: src/AuthDemo.Api/Extensions/ApplicationExtensions.cs
+## File: src/AuthDemo.Api.Tests/Security/CustomWebApplicationFactory.cs
 ````csharp
-using Microsoft.AspNetCore.Authorization;
-using AuthDemo.Api.Models;
-using AuthDemo.Api.Services;
-using Microsoft.AspNetCore.Mvc;
-using Swashbuckle.AspNetCore.Annotations;
+#nullable enable
 
-namespace AuthDemo.Api.Extensions;
+using System;
+using System.Collections.Generic;
+using Microsoft.AspNetCore.Hosting;
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.AspNetCore.Mvc.Testing;
+using AuthDemo.Api.Common;
+using AuthDemo.Api.Options;
 
-public static class ApplicationExtensions
+namespace AuthDemo.Api.Tests.Security;
+
+/// <summary>
+/// Custom factory for configuring the web application during tests.
+/// </summary>
+public class CustomWebApplicationFactory<TStartup> : WebApplicationFactory<TStartup> where TStartup : class
 {
-    public static WebApplication ConfigureEndpoints(this WebApplication app)
+    /// <summary>
+    /// Configures the web host for testing purposes.
+    /// </summary>
+    /// <param name="builder">The web host builder to configure.</param>
+    protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        if (app.Environment.IsDevelopment())
+        builder.UseEnvironment("Testing");
+
+        Environment.SetEnvironmentVariable("JWT_KEY", TestJwtConstants.Key);
+        Environment.SetEnvironmentVariable("JWT_ISSUER", TestJwtConstants.Issuer);
+        Environment.SetEnvironmentVariable("JWT_AUDIENCE", TestJwtConstants.Audience);
+
+        builder.ConfigureAppConfiguration((context, configBuilder) =>
         {
-            app.UseSwagger();
-            app.UseSwaggerUI();
+            /// Updated to use KeyValuePair.Create for cleaner syntax and null-safe values.
+            configBuilder.AddInMemoryCollection(new[]
+            {
+                new KeyValuePair<string, string?>("Jwt:Key", TestJwtConstants.Key),
+                new KeyValuePair<string, string?>("Jwt:Issuer", TestJwtConstants.Issuer),
+                new KeyValuePair<string, string?>("Jwt:Audience", TestJwtConstants.Audience)
+            });
+        });
+
+        builder.ConfigureServices((context, services) =>
+        {
+            services.Configure<JwtOptions>(options =>
+        {
+            options.Key = TestJwtConstants.Key;
+            options.Issuer = TestJwtConstants.Issuer;
+            options.Audience = TestJwtConstants.Audience;
+        });
+        });
+
+        builder.ConfigureServices(services =>
+        {
+            // Additional service configuration if needed
+        });
+    }
+}
+````
+
+## File: src/AuthDemo.Api.Tests/Security/JwtTokenHelper.cs
+````csharp
+#nullable enable
+
+using System;
+using System.IdentityModel.Tokens.Jwt;
+using System.Security.Claims;
+using System.Security.Cryptography;
+using System.Text;
+using Microsoft.IdentityModel.Tokens;
+
+namespace AuthDemo.Api.Tests.Security;
+
+/// <summary>
+/// Provides helper methods for creating JWT tokens during tests.
+/// </summary>
+public static class JwtTokenHelper
+{
+    /// <summary>
+    /// Creates a JWT token with the specified parameters for testing purposes.
+    /// Updated to allow nullable DateTime? for notBefore and expires parameters.
+    /// </summary>
+    /// <param name="issuer">The issuer of the token.</param>
+    /// <param name="audience">The audience of the token.</param>
+    /// <param name="notBefore">The start time of the token validity.</param>
+    /// <param name="expires">The expiration time of the token.</param>
+    /// <param name="key">The secret key used for signing the token.</param>
+    /// <returns>A signed JWT token as a string.</returns>
+    public static string CreateToken(
+        string? issuer = "AuthDemo",
+        string? audience = "AuthDemo",
+        DateTime? notBefore = null,
+        DateTime? expires = null,
+        string key = "TestSecretKey_for_unit_tests_12345678901234567890123456789012") // 32文字以上
+    {
+        if (string.IsNullOrEmpty(key))
+        {
+            throw new ArgumentNullException(nameof(key), "Key cannot be null or empty.");
+        }
+        var keyBytes = Encoding.UTF8.GetBytes(key.PadRight(32, '0')); // Ensure key is at least 256 bits
+        Console.WriteLine($"[DEBUG] Raw Signing Key Bytes: {BitConverter.ToString(keyBytes)}");
+        Console.WriteLine($"[DEBUG] Token Generation Algorithm: {SecurityAlgorithms.HmacSha256}");
+
+        var securityKey = new SymmetricSecurityKey(keyBytes);
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+        // Create the token header manually to include the kid
+        var header = new JwtHeader(credentials)
+        {
+            { "kid", "test-key-id" }
+        };
+
+        // Create the token payload
+        var payload = new JwtPayload(
+            issuer: issuer,
+            audience: audience,
+            claims: null,
+            notBefore: notBefore ?? DateTime.UtcNow,
+            expires: expires ?? DateTime.UtcNow.AddMinutes(30)
+        );
+
+        // Create the token
+        var token = new JwtSecurityToken(header, payload);
+
+        var handler = new JwtSecurityTokenHandler();
+        if (string.IsNullOrEmpty(key))
+        {
+            throw new ArgumentNullException(nameof(key), "Key cannot be null or empty.");
+        }
+        var signingCredentials = new SigningCredentials(new SymmetricSecurityKey(keyBytes), SecurityAlgorithms.HmacSha256);
+        var jwtToken = new JwtSecurityToken(
+            issuer: issuer,
+            audience: audience,
+            claims: payload.Claims,
+            notBefore: notBefore ?? DateTime.UtcNow,
+            expires: expires ?? DateTime.UtcNow.AddMinutes(30),
+            signingCredentials: signingCredentials
+        );
+        var tokenString = handler.WriteToken(jwtToken);
+
+        // Decode and log the token header for debugging
+        var parts = tokenString.Split('.');
+        if (parts.Length == 3)
+        {
+            string DecodeBase64Url(string input)
+            {
+                string base64 = input.Replace('-', '+').Replace('_', '/');
+                switch (base64.Length % 4)
+                {
+                    case 2: base64 += "=="; break;
+                    case 3: base64 += "="; break;
+                }
+                return Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+            }
+
+            var decodedHeader = DecodeBase64Url(parts[0]);
+            Console.WriteLine($"[DEBUG] Decoded Token Header: {decodedHeader}");
+
+            // Compute the signature for comparison
+            using var hmac = new HMACSHA256(keyBytes);
+            var expectedSignatureBytes = hmac.ComputeHash(Encoding.UTF8.GetBytes(parts[0] + "." + parts[1]));
+            var expectedSignature = Convert.ToBase64String(expectedSignatureBytes)
+                .Replace('+', '-')
+                .Replace('/', '_')
+                .TrimEnd('=');
+            Console.WriteLine($"[DEBUG] Expected Signature: {expectedSignature}");
+
+            // Manual validation logic for debugging
+            if (parts.Length == 3)
+            {
+                var actualSignature = parts[2];
+                Console.WriteLine($"[DEBUG] Actual Signature: {actualSignature}");
+                if (expectedSignature == actualSignature)
+                {
+                    Console.WriteLine("[DEBUG] Signature validation succeeded.");
+                }
+                else
+                {
+                    Console.WriteLine("[DEBUG] Signature validation failed.");
+                }
+            }
+            else
+            {
+                Console.WriteLine("[DEBUG] Token structure is invalid.");
+            }
+        }
+        else
+        {
+            Console.WriteLine("[DEBUG] Token structure is invalid.");
         }
 
-        app.UseRouting();
-        app.UseAuthentication();
-        app.UseAuthorization();
-
-        MapEndpoints(app);
-
-        return app;
-    }
-
-    private static void MapEndpoints(WebApplication app)
-    {
-        app.MapGet("/", () => "Hello AuthDemo!")
-            .WithMetadata(new SwaggerOperationAttribute("Get Home", "Returns a welcome message"));
-
-        app.MapGet("/profile", [Authorize] () =>
-            Results.Ok(new { message = "This is a protected endpoint" }))
-            .RequireAuthorization(); // Enforce authentication
-
-        app.MapPost("/auth/signup", async (SignUpRequest request, IUserService userService) =>
-        {
-            try
-            {
-                var result = await userService.SignUpAsync(request.username, request.password);
-                return Results.Ok(new SignUpResponse { id = result.Id, username = result.Username });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Results.BadRequest(new { error = ex.Message });
-            }
-        })
-        .WithName("SignUp")
-        .WithMetadata(new SwaggerOperationAttribute("Sign Up", "Register a new user"));
-
-        app.MapPost("/auth/signin", async (SignInRequest request, IUserService userService) =>
-        {
-            try
-            {
-                var result = await userService.SignInAsync(request.username, request.password);
-                return Results.Ok(new SignInResponse { token = result.Token, username = result.Username });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return Results.BadRequest(new { error = ex.Message });
-            }
-        })
-        .WithName("SignIn")
-        .WithMetadata(new SwaggerOperationAttribute("Sign In", "Authenticate and get JWT token"));
+        return tokenString;
     }
 }
 ````
@@ -2448,8 +2406,84 @@ jobs:
 </Project>
 ````
 
+## File: src/AuthDemo.Api/Extensions/ApplicationExtensions.cs
+````csharp
+using Microsoft.AspNetCore.Authorization;
+using AuthDemo.Api.Models;
+using AuthDemo.Api.Services;
+using Microsoft.AspNetCore.Mvc;
+using Swashbuckle.AspNetCore.Annotations;
+
+namespace AuthDemo.Api.Extensions;
+
+public static class ApplicationExtensions
+{
+    public static WebApplication ConfigureEndpoints(this WebApplication app)
+    {
+        if (app.Environment.IsDevelopment())
+        {
+            app.UseSwagger();
+            app.UseSwaggerUI();
+        }
+
+        app.UseRouting();
+        app.UseAuthentication();
+        app.UseAuthorization();
+
+        MapEndpoints(app);
+
+        return app;
+    }
+
+    private static void MapEndpoints(WebApplication app)
+    {
+        app.MapGet("/", () => "Hello AuthDemo!")
+            .WithMetadata(new SwaggerOperationAttribute("Get Home", "Returns a welcome message"));
+
+        app.MapGet("/profile", [Authorize] () =>
+            Results.Ok(new { message = "This is a protected endpoint" }))
+            .RequireAuthorization(); // Enforce authentication
+
+        app.MapPost("/auth/signup", async (SignUpRequest request, IUserService userService) =>
+        {
+            try
+            {
+                var result = await userService.SignUpAsync(request.username, request.password);
+                return Results.Ok(new SignUpResponse { id = result.Id, username = result.Username });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("SignUp")
+        .WithMetadata(new SwaggerOperationAttribute("Sign Up", "Register a new user"));
+
+        app.MapPost("/auth/signin", async (SignInRequest request, IUserService userService) =>
+        {
+            try
+            {
+                var result = await userService.SignInAsync(request.username, request.password);
+                return Results.Ok(new SignInResponse { token = result.Token, username = result.Username });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return Results.BadRequest(new { error = ex.Message });
+            }
+        })
+        .WithName("SignIn")
+        .WithMetadata(new SwaggerOperationAttribute("Sign In", "Authenticate and get JWT token"));
+    }
+}
+````
+
 ## File: src/AuthDemo.Api/Extensions/JwtAuthenticationExtensions.cs
 ````csharp
+/// Changes made: 
+/// - Aligned logger templates with argument counts.
+/// - Consolidated redundant log calls.
+/// - Replaced Console.WriteLine with logger.LogDebug.
+/// - Added this XML comment summarizing the changes.
 using System.Text;
 using System.IdentityModel.Tokens.Jwt;
 using AuthDemo.Api.Options;
@@ -2519,6 +2553,25 @@ public static class JwtAuthenticationExtensions
         return services;
     }
 }
+````
+
+## File: src/AuthDemo.Api/Program.cs
+````csharp
+using AuthDemo.Api.Extensions;
+
+var builder = WebApplication.CreateBuilder(args);
+builder.Services.AddApplicationServices(builder.Configuration);
+
+builder.Logging.ClearProviders();
+builder.Logging.AddConsole();
+
+var app = builder.Build();
+app.UseAuthentication(); // Activate authentication middleware
+app.UseAuthorization(); // Activate authorization middleware
+app.ConfigureEndpoints();
+app.Run();
+
+public partial class Program { }
 ````
 
 ## File: src/AuthDemo.Api.Tests/Security/JwtAuthenticationTests.cs
@@ -2607,21 +2660,24 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     public static IEnumerable<object[]> InvalidTokenCases =>
         new[]
         {
-            new object[] { "invalid-signature", TestJwtConstants.Issuer, TestJwtConstants.Audience, "ValidKey_12345678901234567890123456789012", null, null },
-            new object[] { "expired", TestJwtConstants.Issuer, TestJwtConstants.Audience, TestJwtConstants.Key, DateTime.UtcNow.AddMinutes(-10), DateTime.UtcNow.AddMinutes(-5) },
-            new object[] { "wrong-issuer", "OtherIssuer", TestJwtConstants.Audience, TestJwtConstants.Key, null, null },
-            new object[] { "wrong-audience", TestJwtConstants.Issuer, "OtherAudience", TestJwtConstants.Key, null, null },
+            new object[] { "invalid-signature", TestJwtConstants.Issuer, TestJwtConstants.Audience, "ValidKey_12345678901234567890123456789012" },
+            new object[] { "wrong-issuer", "OtherIssuer", TestJwtConstants.Audience, TestJwtConstants.Key },
+            new object[] { "wrong-audience", TestJwtConstants.Issuer, "OtherAudience", TestJwtConstants.Key },
         };
 
     [Theory(DisplayName = "Invalid tokens return 401")]
     [MemberData(nameof(InvalidTokenCases))]
     public async Task Invalid_Tokens_Return401(
-    string caseDescription, string issuer, string audience, string key,
-            DateTime? nbf, DateTime? exp)
+        string caseDescription, string issuer, string audience, string key)
     {
         Console.WriteLine($"[DEBUG] Test Case: {caseDescription}");
-        Console.WriteLine($"[DEBUG] Issuer: {issuer}, Audience: {audience}, Key: {key}, NotBefore: {nbf}, Expiration: {exp}");
-        var token = JwtTokenHelper.CreateToken(issuer, audience, nbf, exp, key);
+        Console.WriteLine($"[DEBUG] Issuer: {issuer}, Audience: {audience}, Key: {key}");
+        var token = JwtTokenHelper.CreateToken(
+            issuer: TestJwtConstants.Issuer,
+            audience: "TestAudience",
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddHours(1),
+            key: "TestKey");
         Console.WriteLine($"[DEBUG] Generated Token: {token}");
         var res = await HttpClientExtensions.GetProfileAsync(_client, token);
         Console.WriteLine($"[DEBUG] Response Status Code: {res.StatusCode}");
@@ -2635,9 +2691,11 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     public async Task ProtectedEndpoint_WithValidToken_Returns200()
     {
         var token = JwtTokenHelper.CreateToken(
-        issuer: TestJwtConstants.Issuer,
-        audience: TestJwtConstants.Audience,
-        key: TestJwtConstants.Key);
+            issuer: TestJwtConstants.Issuer,
+            audience: TestJwtConstants.Audience,
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddHours(1),
+            key: TestJwtConstants.Key);
         Console.WriteLine($"[DEBUG] Token Validation Parameters: Issuer={TestJwtConstants.Issuer}, Audience={TestJwtConstants.Audience}, Key={TestJwtConstants.Key}");
         Console.WriteLine($"[DEBUG] Token Header Algorithm: {SecurityAlgorithms.HmacSha256}");
         Console.WriteLine($"[DEBUG] Token Header Key ID: test-key-id");
@@ -2650,25 +2708,6 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
 }
-````
-
-## File: src/AuthDemo.Api/Program.cs
-````csharp
-using AuthDemo.Api.Extensions;
-
-var builder = WebApplication.CreateBuilder(args);
-builder.Services.AddApplicationServices(builder.Configuration);
-
-builder.Logging.ClearProviders();
-builder.Logging.AddConsole();
-
-var app = builder.Build();
-app.UseAuthentication(); // Activate authentication middleware
-app.UseAuthorization(); // Activate authorization middleware
-app.ConfigureEndpoints();
-app.Run();
-
-public partial class Program { }
 ````
 
 ## File: README.md

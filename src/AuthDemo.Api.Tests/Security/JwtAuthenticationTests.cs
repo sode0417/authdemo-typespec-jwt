@@ -1,4 +1,4 @@
-using AuthDemo.Api.Tests.Common;
+using AuthDemo.Api.Common;
 #nullable enable
 using System;
 using System.Threading.Tasks;
@@ -58,42 +58,6 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 }
 
 /// <summary>
-/// Provides helper methods for creating JWT tokens during tests.
-/// </summary>
-public static class JwtTokenHelper
-{
-    /// <summary>
-    /// Creates a JWT token with the specified parameters for testing purposes.
-    /// </summary>
-    /// <param name="issuer">The issuer of the token.</param>
-    /// <param name="audience">The audience of the token.</param>
-    /// <param name="notBefore">The start time of the token validity.</param>
-    /// <param name="expires">The expiration time of the token.</param>
-    /// <param name="key">The secret key used for signing the token.</param>
-    /// <returns>A signed JWT token as a string.</returns>
-    public static string CreateToken(
-        string? issuer = "AuthDemo",
-        string? audience = "AuthDemo",
-        DateTime? notBefore = null,
-        DateTime? expires = null,
-        string? key = "TestSecretKey_for_unit_tests_12345678901234567890123456789012") // 32文字以上
-    {
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!));
-        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-        var handler = new JwtSecurityTokenHandler();
-        var token = handler.CreateToken(new SecurityTokenDescriptor
-        {
-            Issuer = issuer,
-            Audience = audience,
-            NotBefore = notBefore ?? DateTime.UtcNow,
-            Expires = expires ?? DateTime.UtcNow.AddMinutes(30),
-            SigningCredentials = credentials
-        });
-        return handler.WriteToken(token);
-    }
-}
-
-/// <summary>
 /// Contains test cases for verifying JWT authentication functionality.
 /// </summary>
 public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
@@ -127,11 +91,16 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     [Theory(DisplayName = "Invalid tokens return 401")]
     [MemberData(nameof(InvalidTokenCases))]
     public async Task Invalid_Tokens_Return401(
-string issuer, string audience, string key,
-        DateTime? nbf, DateTime? exp)
+    string caseDescription, string issuer, string audience, string key,
+            DateTime? nbf, DateTime? exp)
     {
+        Console.WriteLine($"[DEBUG] Test Case: {caseDescription}");
+        Console.WriteLine($"[DEBUG] Issuer: {issuer}, Audience: {audience}, Key: {key}, NotBefore: {nbf}, Expiration: {exp}");
         var token = JwtTokenHelper.CreateToken(issuer, audience, nbf, exp, key);
+        Console.WriteLine($"[DEBUG] Generated Token: {token}");
         var res = await HttpClientExtensions.GetProfileAsync(_client, token);
+        Console.WriteLine($"[DEBUG] Response Status Code: {res.StatusCode}");
+        Console.WriteLine($"[DEBUG] Response Content: {await res.Content.ReadAsStringAsync()}");
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
     }
     [Fact]
@@ -144,14 +113,15 @@ string issuer, string audience, string key,
         issuer: TestJwtConstants.Issuer,
         audience: TestJwtConstants.Audience,
         key: TestJwtConstants.Key);
+        Console.WriteLine($"[DEBUG] Token Validation Parameters: Issuer={TestJwtConstants.Issuer}, Audience={TestJwtConstants.Audience}, Key={TestJwtConstants.Key}");
+        Console.WriteLine($"[DEBUG] Token Header Algorithm: {SecurityAlgorithms.HmacSha256}");
+        Console.WriteLine($"[DEBUG] Token Header Key ID: test-key-id");
         var response = await HttpClientExtensions.GetProfileAsync(_client, token);
         var res = response;
         Console.WriteLine($"[DEBUG] Generated Token: {token}");
         Console.WriteLine($"[DEBUG] Response Status Code: {res.StatusCode}");
         Console.WriteLine($"[DEBUG] Response Content: {await res.Content.ReadAsStringAsync()}");
-        // Log expected validation parameters for debugging
-        // Additional debug log for token validation
-        // Log response details for debugging
+        Console.WriteLine($"[DEBUG] Expected Status Code: 200 OK");
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
 }

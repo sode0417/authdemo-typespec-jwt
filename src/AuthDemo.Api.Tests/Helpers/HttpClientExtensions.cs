@@ -1,5 +1,6 @@
 #nullable enable
 
+using System;
 using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Threading.Tasks;
@@ -16,4 +17,5 @@ internal static class HttpClientExtensions
         req.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
         return client.SendAsync(req);
     }
+
 }

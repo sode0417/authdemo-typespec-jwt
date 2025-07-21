@@ -6,7 +6,7 @@ using Microsoft.AspNetCore.Hosting;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.AspNetCore.Mvc.Testing;
-using AuthDemo.Api.Tests.Common;
+using AuthDemo.Api.Common;
 using AuthDemo.Api.Options;
 
 namespace AuthDemo.Api.Tests.Security;
@@ -25,25 +25,27 @@ public class CustomWebApplicationFactory<TStartup> : WebApplicationFactory<TStar
         builder.UseEnvironment("Testing");
 
         Environment.SetEnvironmentVariable("JWT_KEY", TestJwtConstants.Key);
+        Environment.SetEnvironmentVariable("JWT_ISSUER", TestJwtConstants.Issuer);
+        Environment.SetEnvironmentVariable("JWT_AUDIENCE", TestJwtConstants.Audience);
 
         builder.ConfigureAppConfiguration((context, configBuilder) =>
         {
             configBuilder.AddInMemoryCollection(new[]
-        {
-        new KeyValuePair<string, string>("Jwt:Key", "TestSecretKey_for_unit_tests_1234567890"), // Force consistent key
-        new KeyValuePair<string, string>("Jwt:Issuer", "AuthDemo"), // Ensure consistent Issuer
-        new KeyValuePair<string, string>("Jwt:Audience", "AuthDemo") // Ensure consistent Audience
-          });
+            {
+                new KeyValuePair<string, string>("Jwt:Key", TestJwtConstants.Key ?? string.Empty), // Handle nullability
+                new KeyValuePair<string, string>("Jwt:Issuer", TestJwtConstants.Issuer ?? string.Empty), // Handle nullability
+                new KeyValuePair<string, string>("Jwt:Audience", TestJwtConstants.Audience ?? string.Empty) // Handle nullability
+            });
         });
 
         builder.ConfigureServices((context, services) =>
         {
             services.Configure<JwtOptions>(options =>
         {
-              options.Key = TestJwtConstants.Key;
-              options.Issuer = TestJwtConstants.Issuer;
-              options.Audience = TestJwtConstants.Audience;
-          });
+            options.Key = TestJwtConstants.Key;
+            options.Issuer = TestJwtConstants.Issuer;
+            options.Audience = TestJwtConstants.Audience;
+        });
         });
 
         builder.ConfigureServices(services =>

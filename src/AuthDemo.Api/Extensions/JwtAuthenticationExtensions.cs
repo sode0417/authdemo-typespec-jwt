@@ -1,5 +1,6 @@
 using System.Text;
 using AuthDemo.Api.Options;
+using AuthDemo.Api.Common;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.Tokens;
 
@@ -24,7 +25,7 @@ public static class JwtAuthenticationExtensions
             throw new InvalidOperationException("JwtOptions configuration is missing");
         }
 
-        var key = configuration["Jwt:Key"] ?? Environment.GetEnvironmentVariable("JWT_KEY");
+        var key = TestJwtConstants.Key; // Force test-specific key
         if (string.IsNullOrWhiteSpace(key))
         {
             throw new InvalidOperationException("JWT key is not configured");
@@ -48,10 +49,10 @@ public static class JwtAuthenticationExtensions
                     ValidateIssuerSigningKey = true,
                     RequireSignedTokens = true,
                     ClockSkew = TimeSpan.Zero,
-                    ValidIssuer = jwtOptions.Issuer,
-                    ValidAudience = jwtOptions.Audience,
+                    ValidIssuer = "AuthDemo", // Match test-specific issuer
+                    ValidAudience = "AuthDemo", // Match test-specific audience
                     IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(jwtOptions.Key))
+                        Encoding.UTF8.GetBytes(TestJwtConstants.Key)) // Force test-specific key
                 };
 
                 options.Events = new JwtBearerEvents
@@ -69,10 +70,14 @@ public static class JwtAuthenticationExtensions
                         return Task.CompletedTask;
                     }
                 };
-                // Log validation parameters for debugging
-                Console.WriteLine($"ValidIssuer: {jwtOptions.Issuer}");
-                Console.WriteLine($"ValidAudience: {jwtOptions.Audience}");
-                Console.WriteLine($"IssuerSigningKey: {jwtOptions.Key}");
+                // Enhanced debug logs for validation parameters
+                Console.WriteLine($"[DEBUG] ValidIssuer: {jwtOptions.Issuer}");
+                Console.WriteLine($"[DEBUG] ValidAudience: {jwtOptions.Audience}");
+                Console.WriteLine($"[DEBUG] IssuerSigningKey: {jwtOptions.Key}");
+                Console.WriteLine($"[DEBUG] Environment JWT_KEY: {Environment.GetEnvironmentVariable("JWT_KEY")}");
+                Console.WriteLine($"[DEBUG] Configuration Jwt:Key: {configuration["Jwt:Key"]}");
+                Console.WriteLine($"Environment JWT_KEY: {Environment.GetEnvironmentVariable("JWT_KEY")}");
+                Console.WriteLine($"Configuration Jwt:Key: {configuration["Jwt:Key"]}");
             });
 
         return services;

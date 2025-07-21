@@ -29,10 +29,9 @@ public static class ApplicationExtensions
         app.MapGet("/", () => "Hello AuthDemo!")
             .WithMetadata(new SwaggerOperationAttribute("Get Home", "Returns a welcome message"));
 
-        app.MapGet("/profile", () => 
+        app.MapGet("/profile", () =>
             Results.Ok(new { message = "This is a protected endpoint" }))
-            .RequireAuthorization()
-            .WithMetadata(new SwaggerOperationAttribute("Get Profile", "Returns protected profile information"));
+            .RequireAuthorization(); // Enforce authentication
 
         app.MapPost("/auth/signup", async (SignUpRequest request, IUserService userService) =>
         {

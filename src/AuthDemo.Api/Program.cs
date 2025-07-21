@@ -7,6 +7,8 @@ builder.Logging.ClearProviders();
 builder.Logging.AddConsole();
 
 var app = builder.Build();
+app.UseAuthentication(); // Activate authentication middleware
+app.UseAuthorization(); // Activate authorization middleware
 app.ConfigureEndpoints();
 app.Run();
 

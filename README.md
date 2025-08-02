@@ -99,3 +99,8 @@ GitHub Actionsを使用して以下を自動化:
 - TypeSpecのコンパイル
 - .NETのビルドとテスト
 - DBマイグレーション
+
+
+## テスト用
+
+- これはGitHub ActionsのCI/CDワークフロー用のテストで記載しています。

@@ -2,12 +2,12 @@
 name: "PR: develop → active feature/*"
 
 on:
-  pull_request:
-    types: [closed]
-    branches: [develop]          # developブランチへのPRがクローズされたときに実行
-  workflow_dispatch:             # 手動実行も可
+  workflow_run:
+    workflows: ["Enable auto-merge"]   # Enable auto-merge workflow
+    types: [completed]                 # 完了したときに実行
+  workflow_dispatch:                   # 手動実行も可
     inputs:
-      dry_run:                   # true にすると PR を作らずログだけ
+      dry_run:                         # true にすると PR を作らずログだけ
         description: "Preview only (no PR creation)"
         type: boolean
         default: false

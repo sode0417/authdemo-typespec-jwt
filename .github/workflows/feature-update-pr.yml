@@ -2,8 +2,9 @@
 name: "PR: develop → active feature/*"
 
 on:
-  push:
-    branches: [develop]          # develop にコミットが入ったら
+  pull_request:
+    types: [closed]
+    branches: [develop]          # developブランチへのPRがクローズされたときに実行
   workflow_dispatch:             # 手動実行も可
     inputs:
       dry_run:                   # true にすると PR を作らずログだけ

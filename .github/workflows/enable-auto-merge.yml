@@ -21,6 +21,8 @@ jobs:
         uses: wusatosi/setup-gh@v1
       - name: enable auto-merge
         id: merge
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo base branch: ${{ github.event.pull_request.base.ref }}
           echo head branch: ${{ github.event.pull_request.head.ref }}

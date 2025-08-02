@@ -31,3 +31,10 @@ jobs:
       - name: For pull requests from upstream to downstream branches (e.g., from main to develop or from develop to feature/), reviewer approval is not required.
         if: ${{ github.event.pull_request.draft == false && (github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop' || github.event.pull_request.head.ref == 'develop' && startsWith(github.event.pull_request.base.ref, 'feature/')) }}
         uses: hmarr/auto-approve-action@v4
+      - name: Trigger feature-update-pr
+        if: ${{ success() && steps.merge.outcome == 'success' }}
+        env:
+          GH_TOKEN: ${{ secrets.BOT_PAT }}
+        run: |
+          gh workflow run "feature-update-pr.yml" \
+          -R "$GITHUB_REPOSITORY"

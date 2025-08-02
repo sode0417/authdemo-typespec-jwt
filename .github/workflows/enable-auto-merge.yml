@@ -36,4 +36,6 @@ jobs:
         if: steps.merge.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.BOT_PAT }}
-        run: gh workflow run "feature-update-pr.yml" -R "$GITHUB_REPOSITORY"
+        run: gh workflow run "feature-update-pr.yml" \
+          -R "$GITHUB_REPOSITORY" \
+          -r develop

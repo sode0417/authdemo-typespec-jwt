@@ -21,6 +21,7 @@ jobs:
       - name: Setup gh
         uses: wusatosi/setup-gh@v1
       - name: enable auto-merge
+        id: merge
         run: |
           echo base branch: ${{ github.event.pull_request.base.ref }}
           echo head branch: ${{ github.event.pull_request.head.ref }}
@@ -32,7 +33,7 @@ jobs:
         if: ${{ github.event.pull_request.draft == false && (github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop' || github.event.pull_request.head.ref == 'develop' && startsWith(github.event.pull_request.base.ref, 'feature/')) }}
         uses: hmarr/auto-approve-action@v4
       - name: Trigger feature-update-pr
-        if: steps.enable_auto-merge.outcome == 'success'
+        if: steps.merge.outcome == 'success'
         env:
           GH_TOKEN: ${{ secrets.BOT_PAT }}
         run: gh workflow run "feature-update-pr.yml" -R "$GITHUB_REPOSITORY"

@@ -80,7 +80,9 @@ public class UserService : IUserService
     private string GenerateJwtToken(User user)
     {
         var key = new SymmetricSecurityKey(
-            Encoding.UTF8.GetBytes(_jwtOptions.Key));
+            Encoding.UTF8.GetBytes(
+                _jwtOptions.Key ?? Environment.GetEnvironmentVariable("JWT_KEY")
+                ?? throw new InvalidOperationException("Signing key is missing")));
         var credentials = new SigningCredentials(
             key, SecurityAlgorithms.HmacSha256);
 

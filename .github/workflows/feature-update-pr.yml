@@ -45,9 +45,12 @@ jobs:
 
             echo "🔍  $br is active (last push $pushed)"
 
-            # 既存 PR の有無をチェック
-            if gh pr list --base "$br" --head develop --json number -q '.[0]'; then
-              echo "↳  PR already exists; skipping"
+            # 既存の “develop → $br” PR が開いているかチェック
+            existing=$(gh pr list --base "$br" --head develop --state open \
+                                  --json number -q '.[0].number')
+
+            if [[ -n "$existing" ]]; then
+              echo "↳  PR #$existing already exists; skipping"
               continue
             fi
 

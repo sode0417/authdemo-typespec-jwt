@@ -131,4 +131,13 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
         var res = await _client.SendAsync(request);
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
     }
+    [Fact]
+    public async Task ProtectedEndpoint_WithValidToken_Returns200()
+    {
+        var token = JwtTokenHelper.CreateToken();
+        var request = new HttpRequestMessage(HttpMethod.Get, "/profile");
+        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
+        var res = await _client.SendAsync(request);
+        Assert.Equal(HttpStatusCode.OK, res.StatusCode);
+    }
 }

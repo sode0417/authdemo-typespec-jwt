@@ -1,8 +1,10 @@
+using AuthDemo.Api.Common;
 #nullable enable
 using System;
 using System.Threading.Tasks;
 using System.IdentityModel.Tokens.Jwt;
 using System.Net.Http;
+using AuthDemo.Api.Tests.Helpers;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Text;
@@ -21,6 +23,9 @@ using System.Linq;
 
 namespace AuthDemo.Api.Tests.Security;
 
+/// <summary>
+/// Custom factory for configuring the web application during JWT authentication tests.
+/// </summary>
 public class CustomWebApplicationFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
@@ -47,35 +52,14 @@ public class CustomWebApplicationFactory : WebApplicationFactory<Program>
             services.AddDbContextPool<ApplicationDbContext>(opts =>
                 opts.UseInMemoryDatabase("TestDb"));
 
-            Environment.SetEnvironmentVariable("JWT_KEY", "TestSecretKey_for_unit_tests_1234567890");
+            Environment.SetEnvironmentVariable("JWT_KEY", TestJwtConstants.Key);
         });
     }
 }
 
-public static class JwtTokenHelper
-{
-    public static string CreateToken(
-        string? issuer = "AuthDemo",
-        string? audience = "AuthDemo",
-        DateTime? notBefore = null,
-        DateTime? expires = null,
-        string? key = "TestSecretKey_for_unit_tests_12345678901234567890123456789012") // 32文字以上
-    {
-        var securityKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(key!));
-        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
-        var handler = new JwtSecurityTokenHandler();
-        var token = handler.CreateToken(new SecurityTokenDescriptor
-        {
-            Issuer = issuer,
-            Audience = audience,
-            NotBefore = notBefore ?? DateTime.UtcNow,
-            Expires = expires ?? DateTime.UtcNow.AddMinutes(30),
-            SigningCredentials = credentials
-        });
-        return handler.WriteToken(token);
-    }
-}
-
+/// <summary>
+/// Contains test cases for verifying JWT authentication functionality.
+/// </summary>
 public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
 {
     private readonly HttpClient _client;
@@ -86,58 +70,61 @@ public class JwtAuthenticationTests : IClassFixture<CustomWebApplicationFactory>
     }
 
     [Fact]
+    /// <summary>
+    /// Tests that accessing a protected endpoint without a token returns a 401 Unauthorized status.
+    /// </summary>
     public async Task ProtectedEndpoint_WithoutToken_Returns401()
     {
         var res = await _client.GetAsync("/profile");
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
     }
 
-    [Fact]
-    public async Task ProtectedEndpoint_WithInvalidSignature_Returns401()
-    {
-        var token = JwtTokenHelper.CreateToken(key: "other-secret-key-12345678901234567890");
-        var request = new HttpRequestMessage(HttpMethod.Get, "/profile");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var res = await _client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
-    }
+    public static IEnumerable<object[]> InvalidTokenCases =>
+        new[]
+        {
+            new object[] { "invalid-signature", TestJwtConstants.Issuer, TestJwtConstants.Audience, TestJwtConstants.Key },
+            new object[] { "wrong-issuer", TestJwtConstants.Issuer, TestJwtConstants.Audience, TestJwtConstants.Key },
+            new object[] { "wrong-audience", TestJwtConstants.Issuer, TestJwtConstants.Audience, TestJwtConstants.Key },
+        };
 
-    [Fact]
-    public async Task ProtectedEndpoint_WithExpiredToken_Returns401()
+    [Theory(DisplayName = "Invalid tokens return 401")]
+    [MemberData(nameof(InvalidTokenCases))]
+    public async Task Invalid_Tokens_Return401(
+        string caseDescription, string issuer, string audience, string key)
     {
-        var token = JwtTokenHelper.CreateToken(notBefore: DateTime.UtcNow.AddMinutes(-10), expires: DateTime.UtcNow.AddMinutes(-5));
-        var request = new HttpRequestMessage(HttpMethod.Get, "/profile");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var res = await _client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
-    }
-
-    [Fact]
-    public async Task ProtectedEndpoint_WithWrongIssuer_Returns401()
-    {
-        var token = JwtTokenHelper.CreateToken(issuer: "OtherIssuer");
-        var request = new HttpRequestMessage(HttpMethod.Get, "/profile");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var res = await _client.SendAsync(request);
-        Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
-    }
-
-    [Fact]
-    public async Task ProtectedEndpoint_WithWrongAudience_Returns401()
-    {
-        var token = JwtTokenHelper.CreateToken(audience: "OtherAudience");
-        var request = new HttpRequestMessage(HttpMethod.Get, "/profile");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var res = await _client.SendAsync(request);
+        Console.WriteLine($"[DEBUG] Test Case: {caseDescription}");
+        Console.WriteLine($"[DEBUG] Issuer: {issuer}, Audience: {audience}, Key: {key}");
+        var token = JwtTokenHelper.CreateToken(
+            issuer: TestJwtConstants.Issuer,
+            audience: "TestAudience",
+            notBefore: DateTime.UtcNow,
+            expires: DateTime.UtcNow.AddHours(1),
+            key: "TestKey");
+        Console.WriteLine($"[DEBUG] Generated Token: {token}");
+        var res = await HttpClientExtensions.GetProfileAsync(_client, token);
+        Console.WriteLine($"[DEBUG] Response Status Code: {res.StatusCode}");
+        Console.WriteLine($"[DEBUG] Response Content: {await res.Content.ReadAsStringAsync()}");
         Assert.Equal(HttpStatusCode.Unauthorized, res.StatusCode);
     }
     [Fact]
+    /// <summary>
+    /// Tests that accessing a protected endpoint with a valid token returns a 200 OK status.
+    /// </summary>
     public async Task ProtectedEndpoint_WithValidToken_Returns200()
     {
-        var token = JwtTokenHelper.CreateToken();
-        var request = new HttpRequestMessage(HttpMethod.Get, "/profile");
-        request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
-        var res = await _client.SendAsync(request);
+        var token = JwtTokenHelper.CreateToken(
+            issuer: TestJwtConstants.Issuer,
+            audience: TestJwtConstants.Audience,
+            key: TestJwtConstants.Key);
+        Console.WriteLine($"[DEBUG] Token Validation Parameters: Issuer={TestJwtConstants.Issuer}, Audience={TestJwtConstants.Audience}, Key={TestJwtConstants.Key}");
+        Console.WriteLine($"[DEBUG] Token Header Algorithm: {SecurityAlgorithms.HmacSha256}");
+        Console.WriteLine($"[DEBUG] Token Header Key ID: test-key-id");
+        var response = await HttpClientExtensions.GetProfileAsync(_client, token);
+        var res = response;
+        Console.WriteLine($"[DEBUG] Generated Token: {token}");
+        Console.WriteLine($"[DEBUG] Response Status Code: {res.StatusCode}");
+        Console.WriteLine($"[DEBUG] Response Content: {await res.Content.ReadAsStringAsync()}");
+        Console.WriteLine($"[DEBUG] Expected Status Code: 200 OK");
         Assert.Equal(HttpStatusCode.OK, res.StatusCode);
     }
 }

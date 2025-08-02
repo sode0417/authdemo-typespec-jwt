@@ -51,7 +51,7 @@ dotnet ef database update --project src/AuthDemo.Infrastructure --startup-projec
 
 環境変数 `JWT_KEY` に秘密鍵を設定します。
 ```bash
-export JWT_KEY=your-development-jwt-key
+export JWT_KEY=SuperSecretKeyWith32BytesMinimum
 ```
 
 ## APIの実行
@@ -101,4 +101,4 @@ GitHub Actionsを使用して以下を自動化:
 - DBマイグレーション
 
 # GitHub Actionsテスト
-- 以下はワークフロー起動のためのテストです。その8
+- 以下はワークフロー起動のためのテストです。その9

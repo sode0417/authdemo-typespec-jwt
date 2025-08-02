@@ -1,0 +1,67 @@
+# .github/workflows/feature-update-pr.yml
+name: "Create PR: develop → active feature/*"
+
+on:
+  push:
+    branches: [develop]        # develop が更新されたら
+  workflow_dispatch:           # 手動トリガ用
+
+jobs:
+  open-prs:
+    runs-on: ubuntu-latest
+    permissions: {}            # GITHUB_TOKEN を無効化
+    strategy:
+      fail-fast: false
+      max-parallel: 3
+      matrix:
+        branch: ${{ fromJson(steps.list.outputs.active_branches) }}
+
+    steps:
+    # 1️⃣ 直近 7 日以内に push があった feature/* を抽出
+    - name: List active feature branches (last 7 days)
+      id: list
+      env:
+        GH_TOKEN: ${{ secrets.BOT_PAT }}
+      run: |
+        set -eo pipefail
+        repo="${{ github.repository }}"
+        cutoff=$(date -u -d '-7 days' +%s)
+
+        # 取得ページ数が多い場合は --paginate 使用
+        branches=$(gh api "/repos/${repo}/branches?per_page=100" --jq '[.[].name]' --paginate)
+        active=()
+
+        for b in $(echo "${branches}" | jq -r '.[]' | grep '^feature/'); do
+          sha=$(gh api "/repos/${repo}/branches/${b}" --jq '.commit.sha')
+          pushed=$(gh api "/repos/${repo}/commits/${sha}" --jq '.commit.committer.date')
+          pushed_ts=$(date -d "${pushed}" +%s)
+          if [ "${pushed_ts}" -ge "${cutoff}" ]; then
+            active+=("\"${b}\"")
+          fi
+        done
+
+        # 行列が空でも YAML 構文エラーにならないよう "[]" を補完
+        echo "active_branches=$(jq -n "[${active[*]}]")" >> "$GITHUB_OUTPUT"
+
+    # 2️⃣ develop を head、feature/* を base とする PR を作成
+    - name: Create PR develop → ${{ matrix.branch }}
+      if: ${{ steps.list.outputs.active_branches != '[]' }}
+      env:
+        GH_TOKEN: ${{ secrets.BOT_PAT }}
+      run: |
+        set -e
+        repo="${{ github.repository }}"
+        base="${{ matrix.branch }}"
+        head="develop"
+
+        # 既に同じ PR が存在しないかチェック
+        pr_number=$(gh pr list --base "${base}" --head "${head}" --json number -q '.[0].number')
+        if [ -z "${pr_number}" ]; then
+          gh pr create \
+            --base "${base}" \
+            --head "${head}" \
+            --title "Sync develop into ${base}" \
+            --body "Automated pull request to keep **${base}** up-to-date with the latest changes in **develop**."
+        else
+          echo "PR already exists (#${pr_number}) — skipping"
+        fi

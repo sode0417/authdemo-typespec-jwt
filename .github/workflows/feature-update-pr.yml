@@ -90,7 +90,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          text="❌ *feature-update-pr* ジョブが失敗しました\n<${run_url}|ログはこちら> を確認してください。"
+          text='❌ *feature-update-pr* ジョブが失敗しました\n<${run_url}|ログはこちら> を確認してください。'
           payload=$(jq -Rn --arg t "$text" '{text:$t}')
           curl -s -X POST -H 'Content-type: application/json' \
                --data "$payload" "$SLACK_WEBHOOK_URL"

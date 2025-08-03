@@ -39,18 +39,26 @@ jobs:
           branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/')
 
           for br in $branches; do
+
+            # 直前に develop へマージされたブランチはスキップ
+            if [[ -n "${{ github.event.inputs.merged_branch }}" && \
+                "$br" == "${{ github.event.inputs.merged_branch }}" ]]; then
+              echo "🚫  $br was just merged into develop; skip sync PR"
+              continue
+            fi
+
+            # 最終更新が7日以上前のブランチはスキップ
             pushed=$(gh api "/repos/${repo}/branches/${br}" --jq '.commit.commit.committer.date')
             [[ $(date -d "$pushed" +%s) -lt $cutoff ]] && { echo "⏭  $br skipped"; continue; }
 
             echo "🔍  $br is active (last push $pushed)"
 
-            # 既に “開いている” PR が存在するか確認
+            # 既に開いている PR が存在するか確認
             existing=$(gh pr list \
                         --base "$br" \
                         --head develop \
                         --state open \
                         --json url -q '.[0].url')
-
             if [[ -n "$existing" ]]; then
               echo "↳  PR already exists; skipping"
               continue

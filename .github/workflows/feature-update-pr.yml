@@ -8,6 +8,10 @@ on:
         description: "Preview only (no PR creation)"
         type: boolean
         default: false
+      merged_branch:
+        description: "feature branch merged into develop"
+        type: string
+        default: ""
 
 jobs:
   create-prs:
@@ -26,6 +30,10 @@ jobs:
           cutoff=$(date -u -d '-7 days' +%s)
           dry="${{ github.event.inputs.dry_run || 'false' }}"
           summary=""
+
+          # マージされたブランチ
+          merged="${{ github.event.inputs.merged_branch }}"
+          [[ -n "$merged" ]] && summary+="\n• *$merged* — develop ← feature マージ完了"
 
           echo "==> Collecting feature/* branches updated since $(date -u -d '-7 days')"
           branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/')

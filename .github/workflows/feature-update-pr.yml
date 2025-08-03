@@ -33,7 +33,7 @@ jobs:
 
           # マージされたブランチ
           merged="${{ github.event.inputs.merged_branch }}"
-          [[ -n "$merged" ]] && summary+="\n• *${merged}* — develop ← feature マージ完了"
+          [[ -n "$merged" ]] && summary+=$'\n• *'"${merged}"'* — develop ← feature マージ完了'
 
           echo "==> Collecting feature/* branches updated since $(date -u -d '-7 days')"
           branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/')
@@ -57,7 +57,7 @@ jobs:
             fi
 
             if [[ $dry == "true" ]]; then
-              summary+="\n• (dry-run) develop → ${br}"
+              summary+=$'\n• (dry-run) develop → '"${br}"
               echo "💡  (dry-run) Would create PR develop → $br"
               continue
             fi
@@ -67,7 +67,7 @@ jobs:
                         --title "Sync develop into $br" \
                         --body "Automated PR to keep **$br** up-to-date with **develop**." \
                         | tail -n1)
-            summary+="\n• *${br}* — <${pr_url}|同期 PR>"
+            summary+=$'\n• *'"${br}"'* — <'"${pr_url}"'|同期 PR>'
           done
 
           # Slack 通知

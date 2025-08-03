@@ -72,10 +72,13 @@ jobs:
 
           # Slack 通知
           if [[ -n "$summary" ]]; then
-            payload=$(jq -n --arg summary "$summary" \
-              '{text: "<!here>\n🟢 *以下のfeatureブランチが更新されました*\n各自作業ブランチの更新を行ってください :arrow_down:" + $summary}')
+            slack_text=$'<!here>\n'
+            slack_text+=$'🟢 *以下のfeatureブランチが更新されました*\n'
+            slack_text+=$'各自作業ブランチの更新を行ってください :arrow_down:\n'
+            slack_text+="$summary"
+            payload=$(jq -n --arg text "$slack_text" '{text: $text}')
             curl -s -X POST -H 'Content-type: application/json' \
-                 --data "$payload" "$SLACK_WEBHOOK_URL"
+               --data "$payload" "$SLACK_WEBHOOK_URL"
           fi
 
           echo "✅  Finished"
@@ -87,7 +90,7 @@ jobs:
           SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
         run: |
           run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
-          text='❌ *feature-update-pr* ジョブが失敗しました\n<${run_url}|ログはこちら> を確認してください。'
+          text=$'❌ *feature-update-pr* ジョブが失敗しました\n<'$run_url'|ログはこちら> を確認してください。'
           payload=$(jq -Rn --arg t "$text" '{text:$t}')
           curl -s -X POST -H 'Content-type: application/json' \
                --data "$payload" "$SLACK_WEBHOOK_URL"

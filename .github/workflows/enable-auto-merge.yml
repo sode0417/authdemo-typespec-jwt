@@ -39,3 +39,4 @@ jobs:
         run: gh workflow run "feature-update-pr.yml" \
           -R "$GITHUB_REPOSITORY" \
           -r develop
+          -f merged_branch="${{ github.event.pull_request.head.ref }}"

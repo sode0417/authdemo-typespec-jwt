@@ -15,53 +15,49 @@ jobs:
 
     env:
       GITHUB_TOKEN: ${{ secrets.BOT_PAT }}
+      SLACK_WEBHOOK_URL:  ${{ secrets.SLACK_WEBHOOK_URL }}
 
     steps:
       - uses: actions/checkout@v4
       - name: Scan and open PRs
         run: |
           set -euo pipefail
-
           repo="${{ github.repository }}"
           cutoff=$(date -u -d '-7 days' +%s)
           dry="${{ github.event.inputs.dry_run || 'false' }}"
+          summary=""
 
           echo "==> Collecting feature/* branches updated since $(date -u -d '-7 days')"
-          branches=$(gh api "/repos/${repo}/branches?per_page=100" \
-                       --paginate --jq '.[].name' | grep '^feature/')
+          branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/')
 
           for br in $branches; do
-            # 取得したブランチの最新 push 日を確認
             pushed=$(gh api "/repos/${repo}/branches/${br}" --jq '.commit.commit.committer.date')
-            pushed_ts=$(date -d "$pushed" +%s)
-
-            if [[ $pushed_ts -lt $cutoff ]]; then
-              echo "⏭  $br skipped (last push $pushed)"
-              continue
-            fi
+            [[ $(date -d "$pushed" +%s) -lt $cutoff ]] && { echo "⏭  $br skipped"; continue; }
 
             echo "🔍  $br is active (last push $pushed)"
 
-            # 既存の “develop → $br” PR が開いているかチェック
-            existing=$(gh pr list --base "$br" --head develop --state open \
-                                  --json number -q '.[0].number')
-
-            if [[ -n "$existing" ]]; then
-              echo "↳  PR #$existing already exists; skipping"
-              continue
-            fi
+            existing=$(gh pr list --base "$br" --head develop --state open --json number -q '.[0].url')
+            [[ -n "$existing" ]] && { echo "↳  PR already exists; skipping"; continue; }
 
             if [[ $dry == "true" ]]; then
+              summary+="\n• (dry-run) develop → $br"
               echo "💡  (dry-run) Would create PR develop → $br"
               continue
             fi
 
             echo "✏️  Creating PR develop → $br ..."
-            gh pr create \
-              --base "$br" \
-              --head develop \
-              --title "Sync develop into $br" \
-              --body "Automated PR to keep **$br** up-to-date with **develop** (last push: $pushed)."
+            gh pr create --base "$br" --head develop \
+                   --title "Sync develop into $br" \
+                   --body "Automated PR to keep **$br** up-to-date with **develop**."
+            pr_url=$(gh pr view --json url -q .url)
+            summary+="\n• <$pr_url|develop → $br>"
           done
+
+          # ----- Slack digest -----
+          if [[ -n "$summary" ]]; then
+            payload=$(jq -Rn --arg text "📦 *Auto-PR digest*:$summary" '{text:$text}')
+            curl -s -X POST -H 'Content-type: application/json' \
+                 --data "$payload" "$SLACK_WEBHOOK_URL"
+          fi
 
           echo "✅  Finished"

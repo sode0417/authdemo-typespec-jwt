@@ -99,3 +99,5 @@ GitHub Actionsを使用して以下を自動化:
 - TypeSpecのコンパイル
 - .NETのビルドとテスト
 - DBマイグレーション
+
+# これはSlack通知テスト用の記述です2

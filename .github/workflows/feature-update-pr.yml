@@ -46,16 +46,20 @@ jobs:
             fi
 
             echo "✏️  Creating PR develop → $br ..."
-            gh pr create --base "$br" --head develop \
-                   --title "Sync develop into $br" \
-                   --body "Automated PR to keep **$br** up-to-date with **develop**."
-            pr_url=$(gh pr view --json url -q .url)
-            summary+="\n• <$pr_url|develop → $br>"
+            pr_url=$(gh pr create --base "$br" --head develop \
+                        --title "Sync develop into $br" \
+                        --body "Automated PR to keep **$br** up-to-date with **develop**." \
+                        | tail -n1)
+            summary+="\n• *$br* — <$pr_url|PR>"
           done
 
           # ----- Slack digest -----
           if [[ -n "$summary" ]]; then
-            payload=$(jq -Rn --arg text "📦 *Auto-PR digest*:$summary" '{text:$text}')
+            slack_text="🟢 *以下のfeatureブランチが更新されました*\n"
+            slack_text+="各自作業ブランチの更新を行ってください :arrow_down:\n"
+            slack_text+="$summary"
+
+            payload=$(jq -Rn --arg text "$slack_text" '{text:$text}')
             curl -s -X POST -H 'Content-type: application/json' \
                  --data "$payload" "$SLACK_WEBHOOK_URL"
           fi

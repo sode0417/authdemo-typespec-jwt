@@ -50,7 +50,7 @@ jobs:
                         --title "Sync develop into $br" \
                         --body "Automated PR to keep **$br** up-to-date with **develop**." \
                         | tail -n1)
-            summary+="\n• *$br* — <$pr_url|同期 PR>"
+            summary+="\n• *$br* — <$pr_url|PR>"
           done
 
           # ----- Slack digest -----

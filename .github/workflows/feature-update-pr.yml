@@ -72,8 +72,8 @@ jobs:
 
           # Slack 通知
           if [[ -n "$summary" ]]; then
-            slack_text="🟢 *以下のfeatureブランチが更新されました*\n"
-            slack_text+="各自作業ブランチの更新を行ってください :arrow_down:\n"
+            slack_text=$'🟢 *以下のfeatureブランチが更新されました*\n'
+            slack_text+=$'各自作業ブランチの更新を行ってください :arrow_down:\n'
             slack_text+="$summary"
 
             payload=$(jq -Rn --arg text "$slack_text" '{text:$text}')

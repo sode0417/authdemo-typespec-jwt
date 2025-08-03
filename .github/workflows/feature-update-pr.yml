@@ -29,11 +29,11 @@ jobs:
           repo="${{ github.repository }}"
           cutoff=$(date -u -d '-7 days' +%s)
           dry="${{ github.event.inputs.dry_run || 'false' }}"
-          summary=""
+          summary=''
 
           # マージされたブランチ
           merged="${{ github.event.inputs.merged_branch }}"
-          [[ -n "$merged" ]] && summary+="\n• *$merged* — develop ← feature マージ完了"
+          [[ -n "$merged" ]] && summary+='\n• *$merged* — develop ← feature マージ完了'
 
           echo "==> Collecting feature/* branches updated since $(date -u -d '-7 days')"
           branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/')
@@ -57,7 +57,7 @@ jobs:
             fi
 
             if [[ $dry == "true" ]]; then
-              summary+="\n• (dry-run) develop → $br"
+              summary+='\n• (dry-run) develop → $br'
               echo "💡  (dry-run) Would create PR develop → $br"
               continue
             fi
@@ -67,14 +67,15 @@ jobs:
                         --title "Sync develop into $br" \
                         --body "Automated PR to keep **$br** up-to-date with **develop**." \
                         | tail -n1)
-            summary+="\n• *$br* — <$pr_url|同期 PR>"
+            summary+='\n• *$br* — <$pr_url|同期 PR>'
           done
 
           # Slack 通知
           if [[ -n "$summary" ]]; then
-            slack_text=$'🟢 *以下のfeatureブランチが更新されました*\n'
+            slack_text=$'@Channel\n'
+            slack_text+=$'🟢 *以下のfeatureブランチが更新されました*\n'
             slack_text+=$'各自作業ブランチの更新を行ってください :arrow_down:\n'
-            slack_text+="$summary"
+            slack_text+='$summary'
 
             payload=$(jq -Rn --arg text "$slack_text" '{text:$text}')
             curl -s -X POST -H 'Content-type: application/json' \

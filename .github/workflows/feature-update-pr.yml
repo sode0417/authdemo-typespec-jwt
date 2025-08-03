@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      GITHUB_TOKEN: ${{ secrets.BOT_PAT }}
+      GH_TOKEN: ${{ secrets.BOT_PAT }}
       SLACK_WEBHOOK_URL:  ${{ secrets.SLACK_WEBHOOK_URL }}
 
     steps:
@@ -36,8 +36,14 @@ jobs:
 
             echo "🔍  $br is active (last push $pushed)"
 
-            existing=$(gh pr list --base "$br" --head develop --state open --json number -q '.[0].url')
-            [[ -n "$existing" ]] && { echo "↳  PR already exists; skipping"; continue; }
+            # 既に PR が存在するか確認
+            existing=$(gh pr list --base "$br" --head develop --state all \
+                                  --json number,state,url -q '.[0]')
+
+            if [[ -n "$existing" ]]; then
+              echo "↳  PR already exists; skipping"
+              continue
+            fi
 
             if [[ $dry == "true" ]]; then
               summary+="\n• (dry-run) develop → $br"
@@ -53,7 +59,7 @@ jobs:
             summary+="\n• *$br* — <$pr_url|同期 PR>"
           done
 
-          # ----- Slack digest -----
+          # Slack 通知
           if [[ -n "$summary" ]]; then
             slack_text="🟢 *以下のfeatureブランチが更新されました*\n"
             slack_text+="各自作業ブランチの更新を行ってください :arrow_down:\n"
@@ -65,3 +71,15 @@ jobs:
           fi
 
           echo "✅  Finished"
+
+      # ===== 失敗時専用 Slack 通知 =====
+      - name: Notify failure to Slack
+        if: failure()
+        env:
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+        run: |
+          run_url="$GITHUB_SERVER_URL/$GITHUB_REPOSITORY/actions/runs/$GITHUB_RUN_ID"
+          text="❌ *feature-update-pr* ジョブが失敗しました\n<${run_url}|ログはこちら> を確認してください。"
+          payload=$(jq -Rn --arg t "$text" '{text:$t}')
+          curl -s -X POST -H 'Content-type: application/json' \
+               --data "$payload" "$SLACK_WEBHOOK_URL"

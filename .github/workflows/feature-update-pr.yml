@@ -46,10 +46,10 @@ jobs:
             fi
 
             echo "✏️  Creating PR develop → $br ..."
-            pr_url=$(gh pr create --base "$br" --head develop \
-                      --title "Sync develop into $br" \
-                      --body "Automated PR to keep **$br** up-to-date with **develop**." \
-                      --json url -q .url)
+            gh pr create --base "$br" --head develop \
+                   --title "Sync develop into $br" \
+                   --body "Automated PR to keep **$br** up-to-date with **develop**."
+            pr_url=$(gh pr view --json url -q .url)
             summary+="\n• <$pr_url|develop → $br>"
           done
 

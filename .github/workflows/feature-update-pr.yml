@@ -8,26 +8,19 @@ on:
     branches:
       - develop
 
-  # Keep manual trigger for ad-hoc runs / dry-run checks
-  workflow_dispatch:
-    inputs:
-      dry_run:     # true にすると PR を作らずログだけ
-        description: "Preview only (no PR creation)"
-        type: boolean
-        default: false
-      merged_branch:
-        description: "feature branch merged into develop"
-        type: string
-        default: ""
+concurrency:
+  group: feature-update-pr-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   create-prs:
-    # ✅ マージされたときだけ実行（手動実行は常にOK）
-    if: ${{ github.event_name == 'workflow_dispatch' || (github.event_name == 'pull_request' && github.event.pull_request.merged == true) }}
+    # ✅ マージされたときだけ実行
+    if: ${{ github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
     env:
       GH_TOKEN: ${{ secrets.BOT_PAT }}
       SLACK_WEBHOOK_URL:  ${{ secrets.SLACK_WEBHOOK_URL }}
+      DRY_RUN: ${{ vars.FEATURE_UPDATE_DRY_RUN || 'true' }}
 
     steps:
       - uses: actions/checkout@v4

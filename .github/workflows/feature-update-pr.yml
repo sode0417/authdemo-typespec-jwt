@@ -2,8 +2,7 @@
 name: "PR: develop → active feature/*"
 
 on:
-  # Run only after a PR into develop is closed (merged or just closed)
-  pull_request:
+  pull_request_target:
     types: [closed]
     branches:
       - develop
@@ -30,13 +29,10 @@ jobs:
           set -euo pipefail
           repo="${{ github.repository }}"
           cutoff=$(date -u -d '-7 days' +%s)
-          dry="${{ github.event.inputs.dry_run || 'false' }}"
+          dry="$DRY_RUN"
           summary=''
 
-          # ✅ マージされた feature ブランチ名を自動検出（手動入力があればそちらを優先）
-          merged_input="${{ github.event.inputs.merged_branch }}"
-          merged_auto="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || '' }}"
-          merged="${merged_input:-$merged_auto}"
+          merged="${{ github.event.pull_request.head.ref }}"
 
           if [[ -n "$merged" ]]; then
             summary+=$'\n• *'"${merged}"'* — develop ← feature マージ完了'

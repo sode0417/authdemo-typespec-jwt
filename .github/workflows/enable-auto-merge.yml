@@ -1,13 +1,16 @@
 name: Merge and sync PR
 
 on:
+  # PR 作成・更新時に実行（synchronize, ready_for_review など）
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
+  # レビューが提出されたときにも実行（承認を検知）
   pull_request_review:
     types: [submitted]
 
 jobs:
   merge_and_sync:
+    # 下書き PR は対象外
     if: ${{ github.event.pull_request.draft == false }}
     runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && 'arc-runner-set' || 'ubuntu-latest' }}
     permissions:
@@ -27,13 +30,16 @@ jobs:
       - name: Auto-approve upstream→downstream PR
         if: ${{ (github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop') || (github.event.pull_request.head.ref == 'develop' && startsWith(github.event.pull_request.base.ref, 'feature/')) }}
         uses: hmarr/auto-approve-action@v4
-      # 条件を確認し、承認済みかつ必須チェックが成功していればマージ
+      # 承認済みかつ必須チェック成功ならマージ
       - name: Conditionally merge PR
         id: merge
+        env:
+          BASE_BRANCH: ${{ github.event.pull_request.base.ref }}
+          HEAD_BRANCH: ${{ github.event.pull_request.head.ref }}
         run: |
           set -euo pipefail
           pr="$PR_NUMBER"
-          # レビューの状態を取得
+          # レビュー状態を取得
           state=$(gh pr view "$pr" --json reviewDecision --jq '.reviewDecision' || echo "UNKNOWN")
           echo "Current review decision: $state"
           if [[ "$state" != "APPROVED" ]]; then
@@ -41,14 +47,14 @@ jobs:
             echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          # 必須チェックが全て成功しているか確認
+          # 必須チェックが成功しているか確認
           if ! gh pr checks "$pr" --required --fail-fast ; then
             echo "Required status checks are not all successful. Skipping merge."
             echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-          base_branch="${{ github.event.pull_request.base.ref }}"
-          head_branch="${{ github.event.pull_request.head.ref }}"
+          base_branch="$BASE_BRANCH"
+          head_branch="$HEAD_BRANCH"
           echo "Base branch: $base_branch, Head branch: $head_branch"
           # マージを実行
           gh pr merge "$pr" --merge --delete-branch

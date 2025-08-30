@@ -1,33 +1,116 @@
-name: Enable auto-merge
+name: Merge and sync PR
 
 on:
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
+  pull_request_review:
+    types: [submitted]
 
 jobs:
-  enable_auto_merge:
-    # PR が draft でない場合のみ実行
+  merge_and_sync:
     if: ${{ github.event.pull_request.draft == false }}
-    env:
-      PR_NUMBER: ${{ github.event.number }}
-      GH_TOKEN:  ${{ secrets.BOT_PAT }}  # ← 追加：PATでマージし、後続ワークフローのトリガを有効にする
+    runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && 'arc-runner-set' || 'ubuntu-latest' }}
     permissions:
       pull-requests: write
       contents: write
       actions: write
-    runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && 'arc-runner-set' || 'ubuntu-latest' }}
+    env:
+      PR_NUMBER: ${{ github.event.number }}
+      GH_TOKEN: ${{ secrets.BOT_PAT }}
+      SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+      DRY_RUN: ${{ vars.FEATURE_UPDATE_DRY_RUN || 'true' }}
     steps:
       - uses: actions/checkout@v4
       - name: Setup gh
         uses: wusatosi/setup-gh@v1
-      - name: enable auto-merge
-        run: |
-          echo base branch: ${{ github.event.pull_request.base.ref }}
-          echo head branch: ${{ github.event.pull_request.head.ref }}
-          echo PR number: ${{ github.event.number }}
-          echo isDraft: ${{ github.event.pull_request.draft }}
-          gh pr merge "$PR_NUMBER" --merge --auto
-        # 上流から下流ブランチへのPRの場合、レビュアー承認を不要とする (mainからdevelopの場合、developからfeature/*の場合)
-      - name: For pull requests from upstream to downstream branches (e.g., from main to develop or from develop to feature/), reviewer approval is not required.
-        if: ${{ github.event.pull_request.draft == false && (github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop' || github.event.pull_request.head.ref == 'develop' && startsWith(github.event.pull_request.base.ref, 'feature/')) }}
+      # 上流から下流ブランチへのPRは自動承認 (main→develop、develop→feature/*)
+      - name: Auto-approve upstream→downstream PR
+        if: ${{ (github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop') || (github.event.pull_request.head.ref == 'develop' && startsWith(github.event.pull_request.base.ref, 'feature/')) }}
         uses: hmarr/auto-approve-action@v4
+      # 条件を確認し、承認済みかつ必須チェックが成功していればマージ
+      - name: Conditionally merge PR
+        id: merge
+        run: |
+          set -euo pipefail
+          pr="$PR_NUMBER"
+          # レビューの状態を取得
+          state=$(gh pr view "$pr" --json reviewDecision --jq '.reviewDecision' || echo "UNKNOWN")
+          echo "Current review decision: $state"
+          if [[ "$state" != "APPROVED" ]]; then
+            echo "PR is not yet approved. Skipping merge."
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # 必須チェックが全て成功しているか確認
+          if ! gh pr checks "$pr" --required --fail-fast ; then
+            echo "Required status checks are not all successful. Skipping merge."
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          base_branch="${{ github.event.pull_request.base.ref }}"
+          head_branch="${{ github.event.pull_request.head.ref }}"
+          echo "Base branch: $base_branch, Head branch: $head_branch"
+          # マージを実行
+          gh pr merge "$pr" --merge --delete-branch
+          echo "merged=true" >> "$GITHUB_OUTPUT"
+          echo "base_branch=$base_branch" >> "$GITHUB_OUTPUT"
+          echo "head_branch=$head_branch" >> "$GITHUB_OUTPUT"
+      # develop にマージされた場合にのみ同期PRを作成
+      - name: Sync develop into active feature branches
+        if: steps.merge.outputs.merged == 'true' && steps.merge.outputs.base_branch == 'develop'
+        run: |
+          set -euo pipefail
+          repo="${{ github.repository }}"
+          merged="${{ steps.merge.outputs.head_branch }}"
+          cutoff=$(date -u -d '-7 days' +%s)
+          summary=''
+          echo "Merged branch: $merged"
+          # feature/* ブランチを列挙
+          branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/' || true)
+          for br in $branches; do
+            # 直前にマージしたブランチはスキップ
+            if [[ "$br" == "$merged" ]]; then
+              echo "🚫  $br was just merged into develop; skip sync PR"
+              continue
+            fi
+            # 最終更新が7日以上前のブランチはスキップ
+            pushed=$(gh api "/repos/${repo}/branches/${br}" --jq '.commit.commit.committer.date' || echo '')
+            if [[ -n "$pushed" && $(date -d "$pushed" +%s) -lt $cutoff ]]; then
+              echo "⏭  $br skipped (stale: $pushed)"
+              continue
+            fi
+            echo "🔍  $br is active (last push $pushed)"
+            # 既に開いている PR が存在するか確認
+            existing=$(gh pr list \
+                        --repo "${repo}" \
+                        --base "$br" \
+                        --head develop \
+                        --state open \
+                        --json url -q '.[0].url' || echo '')
+            if [[ -n "$existing" ]]; then
+              echo "↳  PR already exists: $existing (skip)"
+              continue
+            fi
+            if [[ "$DRY_RUN" == "true" ]]; then
+              summary+=$'\n• (dry-run) develop → '"${br}"
+              echo "💡  (dry-run) Would create PR develop → $br"
+              continue
+            fi
+            echo "✏️  Creating PR develop → $br ..."
+            pr_url=$(gh pr create --repo "${repo}" --base "$br" --head develop \
+                        --title "Sync develop into $br" \
+                        --body "Automated PR to keep **$br** up-to-date with **develop**." \
+                        | tail -n1)
+            summary+=$'\n• *'"${br}"'* — <'"${pr_url}"'|同期 PR>'
+          done
+          # Slack 通知
+          if [[ -n "$summary" ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+              slack_text=$'🔎 *(dry-run)* develop → feature/* 作成予定\n'
+            else
+              slack_text=$'🟢 develop → feature/* 同期PRを作成しました\n'
+            fi
+            slack_text+=$'トリガ: マージ元 *'"${merged}"'*'"${summary}"
+            payload=$(jq -n --arg text "$slack_text" '{text: $text}')
+            curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+          fi

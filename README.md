@@ -100,5 +100,4 @@ GitHub Actionsを使用して以下を自動化:
 - .NETのビルドとテスト
 - DBマイグレーション
 
-# GitHub Actionsテスト
-- 以下はワークフロー起動のためのテストです。その11-B
+## Slack通知test

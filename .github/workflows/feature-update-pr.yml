@@ -2,27 +2,29 @@
 name: "PR: develop → active feature/*"
 
 on:
-  workflow_dispatch:
-    inputs:
-      dry_run:     # true にすると PR を作らずログだけ
-        description: "Preview only (no PR creation)"
-        type: boolean
-        default: false
-      merged_branch:
-        description: "feature branch merged into develop"
-        type: string
-        default: ""
+  # Run only after a PR into develop is closed (merged or just closed)
+  pull_request:
+    types: [closed]
+    branches:
+      - develop
+
+concurrency:
+  group: feature-update-pr-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   create-prs:
+    # ✅ マージされたときだけ実行
+    if: ${{ github.event.pull_request.merged == true }}
     runs-on: ubuntu-latest
-
     env:
       GH_TOKEN: ${{ secrets.BOT_PAT }}
       SLACK_WEBHOOK_URL:  ${{ secrets.SLACK_WEBHOOK_URL }}
+      DRY_RUN: ${{ vars.FEATURE_UPDATE_DRY_RUN || 'true' }}
 
     steps:
       - uses: actions/checkout@v4
+
       - name: Scan and open PRs
         run: |
           set -euo pipefail
@@ -31,47 +33,58 @@ jobs:
           dry="${{ github.event.inputs.dry_run || 'false' }}"
           summary=''
 
-          # マージされたブランチ
-          merged="${{ github.event.inputs.merged_branch }}"
-          [[ -n "$merged" ]] && summary+=$'\n• *'"${merged}"'* — develop ← feature マージ完了'
+          # ✅ マージされた feature ブランチ名を自動検出（手動入力があればそちらを優先）
+          merged_input="${{ github.event.inputs.merged_branch }}"
+          merged_auto="${{ github.event_name == 'pull_request' && github.event.pull_request.head.ref || '' }}"
+          merged="${merged_input:-$merged_auto}"
+
+          if [[ -n "$merged" ]]; then
+            summary+=$'\n• *'"${merged}"'* — develop ← feature マージ完了'
+          fi
 
           echo "==> Collecting feature/* branches updated since $(date -u -d '-7 days')"
-          branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/')
+          branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/' || true)
 
           for br in $branches; do
-
             # 直前に develop へマージされたブランチはスキップ
-            if [[ -n "${{ github.event.inputs.merged_branch }}" && \
-                "$br" == "${{ github.event.inputs.merged_branch }}" ]]; then
+            if [[ -n "$merged" && "$br" == "$merged" ]]; then
               echo "🚫  $br was just merged into develop; skip sync PR"
               continue
             fi
 
             # 最終更新が7日以上前のブランチはスキップ
             pushed=$(gh api "/repos/${repo}/branches/${br}" --jq '.commit.commit.committer.date')
-            [[ $(date -d "$pushed" +%s) -lt $cutoff ]] && { echo "⏭  $br skipped"; continue; }
+            if [[ -z "$pushed" ]]; then
+              echo "⏭  $br skipped (no commit info)"
+              continue
+            fi
+            if [[ $(date -d "$pushed" +%s) -lt $cutoff ]]; then
+              echo "⏭  $br skipped (stale: $pushed)"
+              continue
+            fi
 
             echo "🔍  $br is active (last push $pushed)"
 
             # 既に開いている PR が存在するか確認
             existing=$(gh pr list \
+                        --repo "${repo}" \
                         --base "$br" \
                         --head develop \
                         --state open \
-                        --json url -q '.[0].url')
+                        --json url -q '.[0].url' || true)
             if [[ -n "$existing" ]]; then
-              echo "↳  PR already exists; skipping"
+              echo "↳  PR already exists: $existing (skip)"
               continue
             fi
 
-            if [[ $dry == "true" ]]; then
+            if [[ "$dry" == "true" ]]; then
               summary+=$'\n• (dry-run) develop → '"${br}"
               echo "💡  (dry-run) Would create PR develop → $br"
               continue
             fi
 
             echo "✏️  Creating PR develop → $br ..."
-            pr_url=$(gh pr create --base "$br" --head develop \
+            pr_url=$(gh pr create --repo "${repo}" --base "$br" --head develop \
                         --title "Sync develop into $br" \
                         --body "Automated PR to keep **$br** up-to-date with **develop**." \
                         | tail -n1)
@@ -80,8 +93,7 @@ jobs:
 
           # Slack 通知
           if [[ -n "$summary" ]]; then
-            slack_text=$'<!here>\n'
-            slack_text+=$'🟢 *以下のfeatureブランチが更新されました*\n'
+            slack_text=$'🟢 *以下のfeatureブランチが更新対象です*\n'
             slack_text+=$'各自作業ブランチの更新を行ってください :arrow_down:\n'
             slack_text+="$summary"
             payload=$(jq -n --arg text "$slack_text" '{text: $text}')

@@ -10,6 +10,7 @@ jobs:
     if: ${{ github.event.pull_request.draft == false }}
     env:
       PR_NUMBER: ${{ github.event.number }}
+      GH_TOKEN:  ${{ secrets.BOT_PAT }}  # ← 追加：PATでマージし、後続ワークフローのトリガを有効にする
     permissions:
       pull-requests: write
       contents: write

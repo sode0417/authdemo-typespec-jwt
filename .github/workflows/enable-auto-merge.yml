@@ -1,4 +1,4 @@
-name: Merge and sync PR
+name: Enable auto-merge and sync PR
 
 on:
   # PR 作成・更新時に実行（synchronize, ready_for_review など）
@@ -10,7 +10,7 @@ on:
 
 jobs:
   merge_and_sync:
-    # 下書き PR は対象外
+    # PR が draft でない場合のみ実行
     if: ${{ github.event.pull_request.draft == false }}
     runs-on: ${{ vars.SELF_HOSTED_RUNNER == 'true' && 'arc-runner-set' || 'ubuntu-latest' }}
     permissions:
@@ -40,7 +40,7 @@ jobs:
           set -euo pipefail
           pr="$PR_NUMBER"
           # レビュー状態を取得
-          state=$(gh pr view "$pr" --json reviewDecision --jq '.reviewDecision' || echo "UNKNOWN")
+          state=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json reviewDecision --jq '.reviewDecision' || echo "UNKNOWN")
           echo "Current review decision: $state"
           if [[ "$state" != "APPROVED" ]]; then
             echo "PR is not yet approved. Skipping merge."
@@ -48,7 +48,7 @@ jobs:
             exit 0
           fi
           # 必須チェックが成功しているか確認
-          if ! gh pr checks "$pr" --required --fail-fast ; then
+          if ! gh pr checks "$pr" --repo "$GITHUB_REPOSITORY" --required --fail-fast ; then
             echo "Required status checks are not all successful. Skipping merge."
             echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -57,7 +57,7 @@ jobs:
           head_branch="$HEAD_BRANCH"
           echo "Base branch: $base_branch, Head branch: $head_branch"
           # マージを実行
-          gh pr merge "$pr" --merge --delete-branch
+          gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --merge --delete-branch
           echo "merged=true" >> "$GITHUB_OUTPUT"
           echo "base_branch=$base_branch" >> "$GITHUB_OUTPUT"
           echo "head_branch=$head_branch" >> "$GITHUB_OUTPUT"

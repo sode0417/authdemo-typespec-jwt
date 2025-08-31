@@ -103,4 +103,4 @@ GitHub Actionsを使用して以下を自動化:
 ## Slack通知test
 - test6
 - test7
-- test8-A
+- test8-B

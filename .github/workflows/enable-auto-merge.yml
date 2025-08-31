@@ -27,7 +27,8 @@ jobs:
         uses: wusatosi/setup-gh@v1
       # 上流から下流ブランチへのPRは自動承認 (main→develop、develop→feature/*)
       - name: Auto-approve upstream→downstream PR
-        if: ${{ (github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop') || (github.event.pull_request.head.ref == 'develop' && startsWith(github.event.pull_request.base.ref, 'feature/')) }}
+        # main→develop の場合のみ自動承認を行う。develop→feature/* の同期PRは同一ワークフローで処理するため不要。
+        if: ${{ github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop' }}
         uses: hmarr/auto-approve-action@v4
       # 承認済みかつコンフリクトが無く、必須チェック成功ならマージ
       - name: Conditionally merge PR
@@ -79,7 +80,7 @@ jobs:
           echo "merged=true" >> "$GITHUB_OUTPUT"
           echo "base_branch=$base_branch" >> "$GITHUB_OUTPUT"
           echo "head_branch=$head_branch" >> "$GITHUB_OUTPUT"
-      # develop にマージされた場合にのみ同期PRを作成
+      # develop にマージされた場合にのみ同期PRを作成し、直ちにマージまたは失敗を通知する
       - name: Sync develop into active feature branches
         if: steps.merge.outputs.merged == 'true' && steps.merge.outputs.base_branch == 'develop'
         run: |
@@ -109,29 +110,24 @@ jobs:
               echo "↳  PR already exists: $existing (skip)"
               continue
             fi
+            # dry-run モードでは PR 作成のみログ出力して次へ
             if [[ "$DRY_RUN" == "true" ]]; then
               echo "💡  (dry-run) Would create and merge PR develop → $br"
               continue
             fi
-            echo "✏️  Creating PR develop → $br ..."
+            echo "✏️  Creating sync PR develop → $br ..."
             pr_url=$(gh pr create --repo "${repo}" --base "$br" --head develop --title "Sync develop into $br" --body "Automated PR to keep **$br** up-to-date with **develop**." | tail -n1)
             pr_number="${pr_url##*/}"
             echo "📄  Created sync PR #$pr_number ($pr_url)"
-            # 自動承認（Write 権限を持つアカウントによるレビュー承認）
-            gh pr review "$pr_number" --repo "${repo}" --approve || true
-            # コンフリクト有無を確認
-            mergeable=$(gh pr view "$pr_number" --repo "${repo}" --json mergeable --jq '.mergeable' || echo "UNKNOWN")
-            echo "Mergeability of sync PR #$pr_number: $mergeable"
-            if [[ "$mergeable" == "MERGEABLE" ]]; then
-              if gh pr merge "$pr_number" --repo "${repo}" --merge; then
-                slack_text=$(printf '<!here>\n🟢 develop → feature/* 同期PRがマージされました\n*develop* → *%s* がマージされました。\n<%s|PR #%s>' "$br" "$pr_url" "$pr_number")
-                payload=$(jq -n --arg text "$slack_text" '{text:$text}')
-                curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
-              else
-                echo "⚠️  Failed to merge sync PR #$pr_number"
-              fi
+            # 即時マージを試行。admin 権限がある場合、レビュー要件をバイパス可能。
+            if gh pr merge "$pr_number" --repo "${repo}" --merge --admin; then
+              # 成功した場合は Slack で通知
+              slack_text=$(printf '<!here>\n🟢 develop → feature/* 同期PRがマージされました\n*develop* → *%s* がマージされました。\n<%s|PR #%s>' "$br" "$pr_url" "$pr_number")
+              payload=$(jq -n --arg text "$slack_text" '{text:$text}')
+              curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
             else
-              conflict_text=$(printf '<!here>\n⚠️ develop → feature/* 同期PRにコンフリクトがあります\n*develop* → *%s* のマージにコンフリクトがあります。\n<%s|PR #%s> を確認してください。' "$br" "$pr_url" "$pr_number")
+              # マージに失敗した場合はコンフリクトあるいは保護ルール未達として通知
+              conflict_text=$(printf '<!here>\n⚠️ develop → feature/* 同期PRのマージに失敗しました\n*develop* → *%s* を確認してください。\n<%s|PR #%s>' "$br" "$pr_url" "$pr_number")
               payload=$(jq -n --arg text "$conflict_text" '{text:$text}')
               curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
             fi

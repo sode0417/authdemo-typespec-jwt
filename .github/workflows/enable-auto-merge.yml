@@ -92,12 +92,11 @@ jobs:
           repo="${{ github.repository }}"
           merged="${{ steps.merge.outputs.head_branch }}"
           cutoff=$(date -u -d '-7 days' +%s)
-          summary=''
           echo "Merged branch: $merged"
           # feature/* ブランチを列挙
           branches=$(gh api "/repos/${repo}/branches?per_page=100" --paginate --jq '.[].name' | grep '^feature/' || true)
           for br in $branches; do
-            # 直前にマージしたブランチはスキップ
+            # 直前に develop へマージされたブランチはスキップ
             if [[ "$br" == "$merged" ]]; then
               echo "🚫  $br was just merged into develop; skip sync PR"
               continue
@@ -110,29 +109,39 @@ jobs:
             fi
             echo "🔍  $br is active (last push $pushed)"
             # 既に開いている PR が存在するか確認
-            existing=$(gh pr list \
-                        --repo "${repo}" \
-                        --base "$br" \
-                        --head develop \
-                        --state open \
-                        --json url -q '.[0].url' || echo '')
+            existing=$(gh pr list --repo "${repo}" --base "$br" --head develop --state open --json url -q '.[0].url' || echo '')
             if [[ -n "$existing" ]]; then
               echo "↳  PR already exists: $existing (skip)"
               continue
             fi
             if [[ "$DRY_RUN" == "true" ]]; then
-              summary+=$'\n• (dry-run) develop → '"${br}"
-              echo "💡  (dry-run) Would create PR develop → $br"
+              echo "💡  (dry-run) Would create and merge PR develop → $br"
               continue
             fi
             echo "✏️  Creating PR develop → $br ..."
-            pr_url=$(gh pr create --repo "${repo}" --base "$br" --head develop \
-                        --title "Sync develop into $br" \
-                        --body "Automated PR to keep **$br** up-to-date with **develop**." \
-                        | tail -n1)
-            summary+=$'\n• *'"${br}"'* — <'"${pr_url}"'|同期 PR>'
+            pr_url=$(gh pr create --repo "${repo}" --base "$br" --head develop --title "Sync develop into $br" --body "Automated PR to keep **$br** up-to-date with **develop**." | tail -n1)
+            pr_number="${pr_url##*/}"
+            echo "📄  Created sync PR #$pr_number ($pr_url)"
+            # 自動承認（Write 権限を持つアカウントによるレビュー承認）
+            gh pr review "$pr_number" --repo "${repo}" --approve || true
+            # コンフリクト有無を確認
+            mergeable=$(gh pr view "$pr_number" --repo "${repo}" --json mergeable --jq '.mergeable' || echo "UNKNOWN")
+            echo "Mergeability of sync PR #$pr_number: $mergeable"
+            if [[ "$mergeable" == "MERGEABLE" ]]; then
+              if gh pr merge "$pr_number" --repo "${repo}" --merge; then
+                slack_text=$(printf '<!here>\n🟢 develop → feature/* 同期PRがマージされました\n*develop* → *%s* がマージされました。\n<%s|PR #%s>' "$br" "$pr_url" "$pr_number")
+                payload=$(jq -n --arg text "$slack_text" '{text:$text}')
+                curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+              else
+                echo "⚠️  Failed to merge sync PR #$pr_number"
+              fi
+            else
+              conflict_text=$(printf '<!here>\n⚠️ develop → feature/* 同期PRにコンフリクトがあります\n*develop* → *%s* のマージにコンフリクトがあります。\n<%s|PR #%s> を確認してください。' "$br" "$pr_url" "$pr_number")
+              payload=$(jq -n --arg text "$conflict_text" '{text:$text}')
+              curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+            fi
           done
-          echo "Sync PR summary: $summary"
+          echo "develop → feature/* sync operations complete"
       # Slack 通知
       - name: Notify merge
         if: steps.merge.outputs.merged == 'true'

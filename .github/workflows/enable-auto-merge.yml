@@ -29,7 +29,7 @@ jobs:
       - name: Auto-approve upstream→downstream PR
         if: ${{ (github.event.pull_request.head.ref == 'main' && github.event.pull_request.base.ref == 'develop') || (github.event.pull_request.head.ref == 'develop' && startsWith(github.event.pull_request.base.ref, 'feature/')) }}
         uses: hmarr/auto-approve-action@v4
-      # 承認済みかつ必須チェック成功ならマージ
+      # 承認済みかつコンフリクトが無く、必須チェック成功ならマージ
       - name: Conditionally merge PR
         id: merge
         env:
@@ -38,21 +38,43 @@ jobs:
         run: |
           set -euo pipefail
           pr="$PR_NUMBER"
-          # レビュー状態を確認
+          # レビュー状態を取得
           state=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json reviewDecision --jq '.reviewDecision' || echo "UNKNOWN")
+          echo "Current review decision: $state"
           if [[ "$state" != "APPROVED" ]]; then
+            echo "PR is not yet approved. Skipping merge."
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # コンフリクト有無を確認
+          mergeable=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json mergeable --jq '.mergeable' || echo "UNKNOWN")
+          echo "Mergeability: $mergeable"
+          if [[ "$mergeable" == "CONFLICTING" || "$mergeable" == "UNKNOWN" ]]; then
+            # コンフリクトがある場合は Slack に通知し、マージをスキップ
+            if [[ "$DRY_RUN" == "true" ]]; then
+              slack_text=$'🔎 *(dry-run)* PR has merge conflicts and cannot be merged automatically\n'
+            else
+              slack_text=$'⚠️ PR has merge conflicts and cannot be merged automatically\n'
+            fi
+            slack_text+=$'*'"${HEAD_BRANCH}"'* → *'"${BASE_BRANCH}"'* のマージにコンフリクトがあります。手動で解決してください。'
+            payload=$(jq -n --arg text "$slack_text" '{text: $text}')
+            curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          # 必須チェックが成功しているか確認 (--fail-fast は --watch と併用する必要があるため削除)
+          if ! gh pr checks "$pr" --repo "$GITHUB_REPOSITORY" --required ; then
+            echo "Required status checks are not all successful. Skipping merge."
             echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           base_branch="$BASE_BRANCH"
           head_branch="$HEAD_BRANCH"
-          # マージを試行（レビュー済みかつ必須チェックが通っていなければ失敗する）
-          if ! gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --merge --delete-branch; then
-            # マージできなければスキップ
-            echo "merged=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # マージ成功時のみ同期処理へ
+          echo "Base branch: $base_branch, Head branch: $head_branch"
+          # マージを実行
+          gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --merge
           echo "merged=true" >> "$GITHUB_OUTPUT"
           echo "base_branch=$base_branch" >> "$GITHUB_OUTPUT"
           echo "head_branch=$head_branch" >> "$GITHUB_OUTPUT"
@@ -105,13 +127,49 @@ jobs:
             summary+=$'\n• *'"${br}"'* — <'"${pr_url}"'|同期 PR>'
           done
           # Slack 通知
+          if [[ "$DRY_RUN" == "true" ]]; then
+            header=$'🔎 *(dry-run)* develop → feature/* 作成予定\n'
+          else
+            header=$'🟢 develop → feature/* 同期PRを作成しました\n'
+          fi
           if [[ -n "$summary" ]]; then
+            slack_text="$header"$'トリガ: マージ元 *'"${merged}"'*'"${summary}"
+          else
+            # 同期対象ブランチがない場合でも通知を送る
+            slack_text="$header"$'トリガ: マージ元 *'"${merged}"'*\n⏭ 同期対象の feature ブランチはありません。'
+          fi
+          payload=$(jq -n --arg text "$slack_text" '{text: $text}')
+          curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
+
+      - name: Notify merge into main or feature branch
+        if: steps.merge.outputs.merged == 'true' && (steps.merge.outputs.base_branch == 'main' || startsWith(steps.merge.outputs.base_branch, 'feature/'))
+        env:
+          BASE_BRANCH: ${{ steps.merge.outputs.base_branch }}
+          HEAD_BRANCH: ${{ steps.merge.outputs.head_branch }}
+        run: |
+          set -euo pipefail
+          base="$BASE_BRANCH"
+          head="$HEAD_BRANCH"
+          slack_text=""
+          # main にマージされた場合は head→main の通知
+          if [[ "$base" == "main" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text=$'🔎 *(dry-run)* develop → feature/* 作成予定\n'
+              slack_text=$'🔎 *(dry-run)* PR merged into main\n'
             else
-              slack_text=$'🟢 develop → feature/* 同期PRを作成しました\n'
+              slack_text=$'🟢 PR merged into main\n'
             fi
-            slack_text+=$'トリガ: マージ元 *'"${merged}"'*'"${summary}"
+            slack_text+=$'*'"${head}"'* → *'"${base}"'* がマージされました。'
+          # feature/* にマージされた場合は develop→feature/* の通知
+          elif [[ "$base" == feature/* ]]; then
+            if [[ "$DRY_RUN" == "true" ]]; then
+              slack_text=$'🔎 *(dry-run)* PR merged into feature branch\n'
+            else
+              slack_text=$'🟢 PR merged into feature branch\n'
+            fi
+            slack_text+=$'*'"${head}"'* → *'"${base}"'* がマージされました。'
+          fi
+          # 通知メッセージがあれば送信
+          if [[ -n "$slack_text" ]]; then
             payload=$(jq -n --arg text "$slack_text" '{text: $text}')
             curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
           fi

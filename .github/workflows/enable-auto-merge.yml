@@ -1,10 +1,9 @@
 name: Enable auto-merge and sync PR
 
 on:
-  # PR 作成・更新時に実行（synchronize, ready_for_review など）
   pull_request:
     types: [opened, reopened, synchronize, ready_for_review]
-  # レビューが提出されたときにも実行（承認を検知）
+  # 承認を検知→マージ→同期PR作成のトリガ
   pull_request_review:
     types: [submitted]
 
@@ -18,7 +17,7 @@ jobs:
       contents: write
       actions: write
     env:
-      PR_NUMBER: ${{ github.event.number }}
+      PR_NUMBER: ${{ github.event.pull_request.number }}
       GH_TOKEN: ${{ secrets.BOT_PAT }}
       SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       DRY_RUN: ${{ vars.FEATURE_UPDATE_DRY_RUN || 'true' }}
@@ -48,7 +47,7 @@ jobs:
             exit 0
           fi
           # 必須チェックが成功しているか確認
-          if ! gh pr checks "$pr" --repo "$GITHUB_REPOSITORY" --required --fail-fast ; then
+          if ! gh pr checks "$pr" --repo "$GITHUB_REPOSITORY" --required ; then
             echo "Required status checks are not all successful. Skipping merge."
             echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 0

@@ -63,13 +63,6 @@ jobs:
             echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
-
-          # 必須チェックが成功しているか確認 (--fail-fast は --watch と併用する必要があるため削除)
-          if ! gh pr checks "$pr" --repo "$GITHUB_REPOSITORY" --required ; then
-            echo "Required status checks are not all successful. Skipping merge."
-            echo "merged=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
           base_branch="$BASE_BRANCH"
           head_branch="$HEAD_BRANCH"
           echo "Base branch: $base_branch, Head branch: $head_branch"

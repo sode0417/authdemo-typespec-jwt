@@ -156,7 +156,6 @@ jobs:
           else
             slack_text=$'🟢 '"$title"$'\n'
           fi
-          # 変数展開されるよう single quote から double quote へ変更
           slack_text+="*${head}* → *${base}* がマージされました。"
           # PR URL を追記
           if [[ -n "$pr_url" ]]; then

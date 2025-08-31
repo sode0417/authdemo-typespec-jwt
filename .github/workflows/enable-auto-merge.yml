@@ -66,8 +66,9 @@ jobs:
             if [[ -n "$pr_url" ]]; then
               slack_text+="<${pr_url}|PR #${pr}> を確認してください。"
             fi
-            # @here メンション追加 & blocks で確実に改行を反映
+            # @here メンションを先頭に追加
             slack_text="<!here>\n${slack_text}"
+            # blocks オプションを付けて Slack に送信（改行を確実に反映）
             payload=$(jq -n --arg text "$slack_text" '{text: $text, blocks:[{type:"section",text:{type:"mrkdwn",text:$text}}]}')
             curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
             echo "merged=false" >> "$GITHUB_OUTPUT"
@@ -154,7 +155,7 @@ jobs:
             fi
             slack_text+="*${head}* → *${base}* がマージされました。"
           # feature/* にマージされた場合は develop→feature/* の通知
-          elif [[ "$base" == feature/* ]]; then
+          elif [[ "$base" =~ ^feature/ ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
               slack_text="🔎 *(dry-run)* PR merged into feature branch\n"
             else
@@ -168,7 +169,7 @@ jobs:
           fi
           # 通知メッセージがあれば送信
           if [[ -n "$slack_text" ]]; then
-            # 先頭に @here
+            # 先頭に @here を付けてブロック形式で改行を反映させる
             slack_text="<!here>\n${slack_text}"
             payload=$(jq -n --arg text "$slack_text" '{text: $text, blocks:[{type:"section",text:{type:"mrkdwn",text:$text}}]}')
             curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"

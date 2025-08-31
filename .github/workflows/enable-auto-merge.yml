@@ -52,12 +52,20 @@ jobs:
           echo "Mergeability: $mergeable"
           if [[ "$mergeable" == "CONFLICTING" || "$mergeable" == "UNKNOWN" ]]; then
             # コンフリクトがある場合は Slack に通知し、マージをスキップ
+            # PR の URL を取得し、Slack メッセージに含める
+            pr_url=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json url --jq '.url' || echo "")
+            slack_text=""
             if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text=$'🔎 *(dry-run)* PR has merge conflicts and cannot be merged automatically\n'
+              slack_text="🔎 *(dry-run)* PR has merge conflicts and cannot be merged automatically\n"
             else
-              slack_text=$'⚠️ PR has merge conflicts and cannot be merged automatically\n'
+              slack_text="⚠️ PR has merge conflicts and cannot be merged automatically\n"
             fi
-            slack_text+=$'*'"${HEAD_BRANCH}"'* → *'"${BASE_BRANCH}"'* のマージにコンフリクトがあります。手動で解決してください。'
+            # 詳細メッセージを追加（ブランチ名付き）
+            slack_text+="*${HEAD_BRANCH}* → *${BASE_BRANCH}* のマージにコンフリクトがあります。\n"
+            # PR URL をリンク付きで追加（Slack のリンクフォーマットを使用）
+            if [[ -n "$pr_url" ]]; then
+              slack_text+="<${pr_url}|PR #${pr}> を確認してください。"
+            fi
             payload=$(jq -n --arg text "$slack_text" '{text: $text}')
             curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
             echo "merged=false" >> "$GITHUB_OUTPUT"
@@ -66,7 +74,7 @@ jobs:
           base_branch="$BASE_BRANCH"
           head_branch="$HEAD_BRANCH"
           echo "Base branch: $base_branch, Head branch: $head_branch"
-          # マージを実行
+          # マージを実行 (--repo を必ず指定する)
           gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --merge
           echo "merged=true" >> "$GITHUB_OUTPUT"
           echo "base_branch=$base_branch" >> "$GITHUB_OUTPUT"
@@ -120,20 +128,9 @@ jobs:
             summary+=$'\n• *'"${br}"'* — <'"${pr_url}"'|同期 PR>'
           done
           # Slack 通知
-          if [[ "$DRY_RUN" == "true" ]]; then
-            header=$'🔎 *(dry-run)* develop → feature/* 作成予定\n'
-          else
-            header=$'🟢 develop → feature/* 同期PRを作成しました\n'
-          fi
-          if [[ -n "$summary" ]]; then
-            slack_text="$header"$'トリガ: マージ元 *'"${merged}"'*'"${summary}"
-          else
-            # 同期対象ブランチがない場合でも通知を送る
-            slack_text="$header"$'トリガ: マージ元 *'"${merged}"'*\n⏭ 同期対象の feature ブランチはありません。'
-          fi
-          payload=$(jq -n --arg text "$slack_text" '{text: $text}')
-          curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
-
+          # 同期 PR 作成時点では通知を送らないようにする
+          # 必要に応じて summary をログ出力
+          echo "Sync PR summary: $summary"
       - name: Notify merge into main or feature branch
         if: steps.merge.outputs.merged == 'true' && (steps.merge.outputs.base_branch == 'main' || startsWith(steps.merge.outputs.base_branch, 'feature/'))
         env:
@@ -144,22 +141,28 @@ jobs:
           base="$BASE_BRANCH"
           head="$HEAD_BRANCH"
           slack_text=""
+          # PR の URL を取得
+          pr_url=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json url --jq '.url' || echo "")
           # main にマージされた場合は head→main の通知
           if [[ "$base" == "main" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text=$'🔎 *(dry-run)* PR merged into main\n'
+              slack_text="🔎 *(dry-run)* PR merged into main\n"
             else
-              slack_text=$'🟢 PR merged into main\n'
+              slack_text="🟢 PR merged into main\n"
             fi
-            slack_text+=$'*'"${head}"'* → *'"${base}"'* がマージされました。'
+            slack_text+="*${head}* → *${base}* がマージされました。"
           # feature/* にマージされた場合は develop→feature/* の通知
           elif [[ "$base" == feature/* ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text=$'🔎 *(dry-run)* PR merged into feature branch\n'
+              slack_text="🔎 *(dry-run)* PR merged into feature branch\n"
             else
-              slack_text=$'🟢 PR merged into feature branch\n'
+              slack_text="🟢 PR merged into feature branch\n"
             fi
-            slack_text+=$'*'"${head}"'* → *'"${base}"'* がマージされました。'
+            slack_text+="*${head}* → *${base}* がマージされました。"
+          fi
+          # PR URL を追記
+          if [[ -n "$pr_url" ]]; then
+            slack_text+="\n<${pr_url}|PR #${PR_NUMBER}>"
           fi
           # 通知メッセージがあれば送信
           if [[ -n "$slack_text" ]]; then

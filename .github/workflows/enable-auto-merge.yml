@@ -127,12 +127,10 @@ jobs:
                         | tail -n1)
             summary+=$'\n• *'"${br}"'* — <'"${pr_url}"'|同期 PR>'
           done
-          # Slack 通知
-          # 同期 PR 作成時点では通知を送らないようにする
-          # 必要に応じて summary をログ出力
           echo "Sync PR summary: $summary"
-      - name: Notify merge into main or feature branch
-        if: steps.merge.outputs.merged == 'true' && (steps.merge.outputs.base_branch == 'main' || startsWith(steps.merge.outputs.base_branch, 'feature/'))
+      # Slack 通知
+      - name: Notify merge
+        if: steps.merge.outputs.merged == 'true'
         env:
           BASE_BRANCH: ${{ steps.merge.outputs.base_branch }}
           HEAD_BRANCH: ${{ steps.merge.outputs.head_branch }}
@@ -143,26 +141,25 @@ jobs:
           slack_text=""
           # PR の URL を取得
           pr_url=$(gh pr view "$PR_NUMBER" --repo "$GITHUB_REPOSITORY" --json url --jq '.url' || echo "")
-          # main にマージされた場合は head→main の通知
+          # ベースブランチ種別でタイトル行を差し替え
           if [[ "$base" == "main" ]]; then
-            if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text=$'🔎 *(dry-run)* PR merged into main\n'
-            else
-              slack_text=$'🟢 PR merged into main\n'
-            fi
-            slack_text+="*${head}* → *${base}* がマージされました。"
-          # feature/* にマージされた場合は develop→feature/* の通知
+            title='PR merged into main'
+          elif [[ "$base" == "develop" ]]; then
+            title='PR merged into develop'
           elif [[ "$base" =~ ^feature/ ]]; then
-            if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text=$'🔎 *(dry-run)* PR merged into feature branch\n'
-            else
-              slack_text=$'🟢 PR merged into feature branch\n'
-            fi
-            slack_text+="*${head}* → *${base}* がマージされました。"
+            title='PR merged into feature branch'
+          else
+            title="PR merged into $base"
           fi
+          if [[ "$DRY_RUN" == "true" ]]; then
+            slack_text=$'🔎 *(dry-run)* '"$title"$'\n'
+          else
+            slack_text=$'🟢 '"$title"$'\n'
+          fi
+          slack_text+='*${head}* → *${base}* がマージされました。'
           # PR URL を追記
           if [[ -n "$pr_url" ]]; then
-            slack_text+="\n<${pr_url}|PR #${PR_NUMBER}>"
+            slack_text+=$'\n<'"${pr_url}"'|PR #'"${PR_NUMBER}"'>'
           fi
           # 通知メッセージがあれば送信
           if [[ -n "$slack_text" ]]; then

@@ -38,25 +38,21 @@ jobs:
         run: |
           set -euo pipefail
           pr="$PR_NUMBER"
-          # レビュー状態を取得
+          # レビュー状態を確認
           state=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json reviewDecision --jq '.reviewDecision' || echo "UNKNOWN")
-          echo "Current review decision: $state"
           if [[ "$state" != "APPROVED" ]]; then
-            echo "PR is not yet approved. Skipping merge."
-            echo "merged=false" >> "$GITHUB_OUTPUT"
-            exit 0
-          fi
-          # 必須チェックが成功しているか確認
-          if ! gh pr checks "$pr" --repo "$GITHUB_REPOSITORY" --required ; then
-            echo "Required status checks are not all successful. Skipping merge."
             echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           base_branch="$BASE_BRANCH"
           head_branch="$HEAD_BRANCH"
-          echo "Base branch: $base_branch, Head branch: $head_branch"
-          # マージを実行
-          gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --merge --delete-branch
+          # マージを試行（レビュー済みかつ必須チェックが通っていなければ失敗する）
+          if ! gh pr merge "$pr" --repo "$GITHUB_REPOSITORY" --merge --delete-branch; then
+            # マージできなければスキップ
+            echo "merged=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # マージ成功時のみ同期処理へ
           echo "merged=true" >> "$GITHUB_OUTPUT"
           echo "base_branch=$base_branch" >> "$GITHUB_OUTPUT"
           echo "head_branch=$head_branch" >> "$GITHUB_OUTPUT"

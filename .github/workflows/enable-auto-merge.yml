@@ -156,7 +156,7 @@ jobs:
           else
             slack_text=$'🟢 '"$title"$'\n'
           fi
-          slack_text+='*${head}* → *${base}* がマージされました。'
+          slack_text+="*${head}* → *${base}* がマージされました。"
           # PR URL を追記
           if [[ -n "$pr_url" ]]; then
             slack_text+=$'\n<'"${pr_url}"'|PR #'"${PR_NUMBER}"'>'

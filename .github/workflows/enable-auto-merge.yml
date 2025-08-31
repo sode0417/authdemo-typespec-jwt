@@ -6,11 +6,6 @@ on:
   # 承認を検知→マージ→同期PR作成のトリガ
   pull_request_review:
     types: [submitted]
-  # ベースブランチ側のワークフローで処理する。feature/* 向け PR でのみ実行。
-  pull_request_target:
-    types: [opened, reopened, synchronize, ready_for_review]
-    branches:
-      - 'feature/*'
 
 jobs:
   merge_and_sync:

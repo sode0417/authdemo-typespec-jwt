@@ -54,22 +54,19 @@ jobs:
             # コンフリクトがある場合は Slack に通知し、マージをスキップ
             # PR の URL を取得し、Slack メッセージに含める
             pr_url=$(gh pr view "$pr" --repo "$GITHUB_REPOSITORY" --json url --jq '.url' || echo "")
-            slack_text=""
+            # Slack メッセージを組み立てる（改行を含むため ANSI-C quotingを使用）
             if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text="🔎 *(dry-run)* PR has merge conflicts and cannot be merged automatically\n"
+              slack_text=$'<!here>\n🔎 *(dry-run)* PR has merge conflicts and cannot be merged automatically\n'
             else
-              slack_text="⚠️ PR has merge conflicts and cannot be merged automatically\n"
+              slack_text=$'<!here>\n⚠️ PR has merge conflicts and cannot be merged automatically\n'
             fi
             # 詳細メッセージを追加（ブランチ名付き）
-            slack_text+="*${HEAD_BRANCH}* → *${BASE_BRANCH}* のマージにコンフリクトがあります。\n"
+            slack_text+=$'*'"${HEAD_BRANCH}"'* → *'"${BASE_BRANCH}"'* のマージにコンフリクトがあります。'
             # PR URL をリンク付きで追加（Slack のリンクフォーマットを使用）
             if [[ -n "$pr_url" ]]; then
-              slack_text+="<${pr_url}|PR #${pr}> を確認してください。"
+              slack_text+=$'\n<'"${pr_url}"'|PR #'"${pr}"'> を確認してください。'
             fi
-            # @here メンションを先頭に追加
-            slack_text="<!here>\n${slack_text}"
-            # blocks オプションを付けて Slack に送信（改行を確実に反映）
-            payload=$(jq -n --arg text "$slack_text" '{text: $text, blocks:[{type:"section",text:{type:"mrkdwn",text:$text}}]}')
+            payload=$(jq -n --arg text "$slack_text" '{text:$text}')
             curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
             echo "merged=false" >> "$GITHUB_OUTPUT"
             exit 0
@@ -149,17 +146,17 @@ jobs:
           # main にマージされた場合は head→main の通知
           if [[ "$base" == "main" ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text="🔎 *(dry-run)* PR merged into main\n"
+              slack_text=$'🔎 *(dry-run)* PR merged into main\n'
             else
-              slack_text="🟢 PR merged into main\n"
+              slack_text=$'🟢 PR merged into main\n'
             fi
             slack_text+="*${head}* → *${base}* がマージされました。"
           # feature/* にマージされた場合は develop→feature/* の通知
           elif [[ "$base" =~ ^feature/ ]]; then
             if [[ "$DRY_RUN" == "true" ]]; then
-              slack_text="🔎 *(dry-run)* PR merged into feature branch\n"
+              slack_text=$'🔎 *(dry-run)* PR merged into feature branch\n'
             else
-              slack_text="🟢 PR merged into feature branch\n"
+              slack_text=$'🟢 PR merged into feature branch\n'
             fi
             slack_text+="*${head}* → *${base}* がマージされました。"
           fi
@@ -169,8 +166,9 @@ jobs:
           fi
           # 通知メッセージがあれば送信
           if [[ -n "$slack_text" ]]; then
-            # 先頭に @here を付けてブロック形式で改行を反映させる
-            slack_text="<!here>\n${slack_text}"
-            payload=$(jq -n --arg text "$slack_text" '{text: $text, blocks:[{type:"section",text:{type:"mrkdwn",text:$text}}]}')
+            # 先頭に @here を付けて改行を含むメッセージを送る
+            slack_msg=$'<!here>\n'
+            slack_msg+="$slack_text"
+            payload=$(jq -n --arg text "$slack_msg" '{text:$text}')
             curl -s -X POST -H 'Content-type: application/json' --data "$payload" "$SLACK_WEBHOOK_URL"
           fi
